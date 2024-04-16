@@ -23,3 +23,10 @@ class AppConfig:
         if "auth" in config:
             return config["auth"]
         return None
+
+    @classmethod
+    def get_models_config(cls) -> Optional[list]:
+        config = cls.get()
+        if "models" in config:
+            return config["models"]
+        return None

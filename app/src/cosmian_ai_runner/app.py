@@ -10,8 +10,12 @@ from flask_cors import CORS
 
 from .auth import check_token
 from .config import AppConfig
+from .detect import is_gpu_available
+from .llm_chain import ModelValue, RagLLMChain
+from .rag import Rag
 from .summarizer import Summarizer
 from .translator import Translator
+from .vector_db import SentenceTransformer, VectorDB
 
 torch.set_num_threads(os.cpu_count() or 1)
 
@@ -29,6 +33,14 @@ summarizer_by_lang: Dict[str, Summarizer] = {
 }
 translator = Translator(**app_config["translation"])
 
+model_values = {}
+data_list = AppConfig.get_models_config()
+for item in data_list:
+    model_id = item.get("model_id")
+    file = item.get("file")
+    prompt = item.get("prompt")
+    model_value = ModelValue(model_id, file, prompt)
+    model_values[model_id] = model_value
 
 @app.post("/summarize")
 @check_token()
@@ -82,3 +94,95 @@ async def post_translate():
 def health_check():
     """Health check of the application."""
     return Response(response="OK", status=HTTPStatus.OK)
+
+
+@app.post("/request")
+@check_token()
+async def request_model():
+    """Make a request using selected model."""
+    if "text" not in request.form:
+        return ("Error: Missing file content", 400)
+    # if "model" not in request.form:
+    #     return ("Error: Missing selected model", 400)
+    # if "sentence_transformer" not in request.form:
+    #     return ("Error: Missing sentence transformer", 400)
+
+    text = request.form["text"]
+    model_name = request.form["model"]
+    sentence_transformer_name = request.form["sentence_transformer"]
+
+    if is_gpu_available():
+        print("GPU is available.")
+
+    # Choose the model
+    if model_name:
+        model = model_values[model_name]
+        if model is None:
+            print(f"Model {model_name} not found.")
+            return jsonify(
+                {
+                    "request": "KO",
+                }
+            )
+    # elif is_gpu_available():
+    #     model = Model.MIXTRAL_8x7B
+    # else:
+    #     model = Model.DRAGON_MISTRAL_7B_V0_Q5
+    print(f"Using LLM: {model.model_id}")
+
+    # Choose the sentence transformer
+    if sentence_transformer_name:
+        sentence_transformer = SentenceTransformer[sentence_transformer_name]
+        if sentence_transformer is None:
+            print(f"Sentence transformer {sentence_transformer_name} not found.")
+            return jsonify(
+                {
+                    "request": "KO",
+                }
+            )
+    else:
+        sentence_transformer = SentenceTransformer.ALL_MINILM_L12_V2
+    print(f"Using sentence transformer: {sentence_transformer.name}")
+
+    rag = Rag(model=model, sentence_transformer=sentence_transformer)
+    print("RAG created.")
+    # sources = [
+    #     "data/Victor_Hugo_Notre-Dame_De_Paris_en.epub",
+    #     "data/Victor_Hugo_Les_Miserables_Fantine_1_of_5_en.epub",
+    #     # "data/Victor_Hugo_Ruy_Blas_fr.epub",
+    # ]
+    # print("RAG populated.")
+    # for source in sources:
+    #     print(f"Loading {source}...")
+    #     rag.add_document(source)
+    previous_request = "Summarize this document : " + text
+    previous_context: list[Document] = []
+    print("REQUEST", previous_request)
+    response = rag.invoke(previous_request)
+    print("RESPONSE", response)
+    # previous_request = response['query']
+    # previous_context = response['context']
+    # score = response.get('score')
+    # if score is not None:
+    #     print(f"Score: {response['score']}%. ", end="")
+    # total_time = response['total_time']
+    # llm_time = response['llm_time']
+    # print(f"Total time: {total_time:.2f} seconds (LLM: {llm_time:.2f} s)")
+    print(response['text'])
+    return jsonify(
+        {
+            "request": "OK",
+        }
+    )
+
+
+@app.get("/models")
+@check_token()
+async def list_models():
+    """List all the configured models."""
+    models = model_values.keys()
+    return jsonify(
+        {
+            "models": list(models),
+        }
+    )
