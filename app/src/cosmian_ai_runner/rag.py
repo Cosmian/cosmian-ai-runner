@@ -10,30 +10,29 @@ from .vector_db import SentenceTransformer, VectorDB
 
 
 class Rag:
-    db: VectorDB
+    # db: VectorDB
     rag_chain: RunnableSerializable[Any, dict[str, Any]]
 
     def __init__(self,
                  model: ModelValue,
-                 sentence_transformer=SentenceTransformer.ALL_MINILM_L12_V2,
                  chunk_size: int = 512,
                  chunk_overlap: int = 0,
                  max_results=5
                  ):
         llm_chain = RagLLMChain(model)
-        self.db = VectorDB(
-            sentence_transformer=sentence_transformer,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            max_results=max_results
-        )
+        # self.db = VectorDB(
+        #     sentence_transformer=sentence_transformer,
+        #     chunk_size=chunk_size,
+        #     chunk_overlap=chunk_overlap,
+        #     max_results=max_results
+        # )
         self.rag_chain = {
-                             "context": self.db.as_retriever(),
+                            "context": {},
                              "query": RunnablePassthrough()
                          } | llm_chain
 
-    def add_document(self, document_path: str):
-        self.db.insert(document_path)
+    # def add_document(self, document_path: str):
+    #     self.db.insert(document_path)
 
     def invoke(self, query: Input, config: Optional[RunnableConfig] = None) -> Output:
         start_time = time.perf_counter()

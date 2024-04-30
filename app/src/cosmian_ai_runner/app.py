@@ -96,12 +96,12 @@ def health_check():
     return Response(response="OK", status=HTTPStatus.OK)
 
 
-@app.post("/request")
+@app.post("/predict")
 @check_token()
-async def request_model():
-    """Make a request using selected model."""
+async def make_predictionl():
+    """Make a prediction using selected model."""
     if "text" not in request.form:
-        return ("Error: Missing file content", 400)
+        return ("Error: Missing text content", 400)
     # if "model" not in request.form:
     #     return ("Error: Missing selected model", 400)
     # if "sentence_transformer" not in request.form:
@@ -109,7 +109,7 @@ async def request_model():
 
     text = request.form["text"]
     model_name = request.form["model"]
-    sentence_transformer_name = request.form["sentence_transformer"]
+    # sentence_transformer_name = request.form["sentence_transformer"]
 
     if is_gpu_available():
         print("GPU is available.")
@@ -131,20 +131,20 @@ async def request_model():
     print(f"Using LLM: {model.model_id}")
 
     # Choose the sentence transformer
-    if sentence_transformer_name:
-        sentence_transformer = SentenceTransformer[sentence_transformer_name]
-        if sentence_transformer is None:
-            print(f"Sentence transformer {sentence_transformer_name} not found.")
-            return jsonify(
-                {
-                    "request": "KO",
-                }
-            )
-    else:
-        sentence_transformer = SentenceTransformer.ALL_MINILM_L12_V2
-    print(f"Using sentence transformer: {sentence_transformer.name}")
+    # if sentence_transformer_name:
+    #     sentence_transformer = SentenceTransformer[sentence_transformer_name]
+    #     if sentence_transformer is None:
+    #         print(f"Sentence transformer {sentence_transformer_name} not found.")
+    #         return jsonify(
+    #             {
+    #                 "request": "KO",
+    #             }
+    #         )
+    # else:
+    #     sentence_transformer = SentenceTransformer.ALL_MINILM_L12_V2
+    # print(f"Using sentence transformer: {sentence_transformer.name}")
 
-    rag = Rag(model=model, sentence_transformer=sentence_transformer)
+    rag = Rag(model=model)
     print("RAG created.")
     # sources = [
     #     "data/Victor_Hugo_Notre-Dame_De_Paris_en.epub",
@@ -168,7 +168,7 @@ async def request_model():
     # total_time = response['total_time']
     # llm_time = response['llm_time']
     # print(f"Total time: {total_time:.2f} seconds (LLM: {llm_time:.2f} s)")
-    print(response['text'])
+    print("TEXT", response['text'])
     return jsonify(
         {
             "request": "OK",
