@@ -26,4 +26,4 @@ version = { attr = "cosmian_ai_runner.__version__" }
 dependencies = { file = "requirements.txt" }
 
 [project.scripts]
-cosmian-ai-runner = "cosmian_ai_runner.main:main"
+cosmian_ai_runner = "cosmian_ai_runner.main:main"
