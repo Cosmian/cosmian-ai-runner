@@ -15,10 +15,11 @@ os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
 
 class ModelValue:
-    def __init__(self, model_id: str, file: Any, prompt: Any):
+    def __init__(self, model_id: str, file: Any, prompt: Any, task: str):
         self.model_id = model_id
         self.file = file
-        self.prompt = ""
+        self.prompt = prompt
+        self.task = task
 
 # DRAGON_MISTRAL_ANSWER_TOOL = ModelValue(model_id="llmware/dragon-mistral-answer-tool", file="dragon-mistral.gguf", prompt=None)
 # DRAGON_YI_6B_V0 = ModelValue(model_id="llmware/dragon-yi-6b-v0", file="dragon-yi-6b-q4_k_m.gguf", prompt=None)
@@ -52,7 +53,7 @@ class ModelValue:
 # """)
 
 
-def __load_hf_model__(model_id: str) -> BaseLLM:
+def __load_hf_model__(model_id: str, task: str) -> BaseLLM:
     """
     Load a model using HuggingFace pipeline
     :param model_id:
@@ -74,14 +75,14 @@ def __load_hf_model__(model_id: str) -> BaseLLM:
     else:
         model = AutoModelForCausalLM.from_pretrained(model_id)
     pipe = pipeline(
-        "text-generation",
+        task,
         model=model,
         tokenizer=tokenizer,
-        max_new_tokens=256,
-        device_map="auto",
-        pad_token_id=tokenizer.eos_token_id
+        max_new_tokens=50
+        # device_map="auto",
+        # pad_token_id=tokenizer.eos_token_id
     )
-    base_llm = HuggingFacePipeline(pipeline=pipe)
+    base_llm = HuggingFacePipeline(pipeline=pipe, model_kwargs={'temperature': 0.7})
     return base_llm
 
 
@@ -114,57 +115,73 @@ def __load_hf_gguf_model__(model_id: str, model_file: str = None) -> BaseLLM:
 
 class RagLLMChain(LLMChain):
 
-    def __init__(self, model: ModelValue, **kwargs: Any):
+    def __init__(self, model: ModelValue):
         model_id = model.model_id
         model_file = model.file
-        prompt = model.prompt
+        initial_prompt = model.prompt
+        task = model.task
         is_gguf = (model_file is not None) and model_file.strip().lower().endswith('.gguf')
         if is_gguf:
             base_llm = __load_hf_gguf_model__(model_id=model_id, model_file=model_file)
         else:
-            base_llm = __load_hf_model__(model_id=model_id)
+            base_llm = __load_hf_model__(model_id=model_id, task=task)
         from langchain.prompts import PromptTemplate
-        if prompt is not None:
-            print("Using a custom prompt")
-            template = prompt
-        else:
-            template = """<human>: Use the following pieces of context to answer the user question.
-This context retrieved from a knowledge base and you should use only the facts from the context to answer.
-Your answer must be based on the context. If the context not contain the answer, just say that 'I don't know',
-don't try to make up an answer, use the context.
-Don't address the context directly, but use it to answer the user question like it's your own knowledge.
-Answer in short, use up to 10 words.
 
-Context:
-{context}
-
-Question: {query}
-<bot>:
-"""
+        # template = """Question: {question}
+        # Answer: Let's think step by step."""
+        template = initial_prompt
         prompt = PromptTemplate.from_template(template)
-        super().__init__(llm=base_llm, prompt=prompt, **kwargs)
+        print("prompt", prompt)
 
-    def invoke(
-            self,
-            input_args: Dict[str, Any],
-            config: Optional[RunnableConfig] = None,
-            **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """
-        Override on LLMChain.invoke() to add a confidence score
-        """
-        documents: list[Document] = input_args['context']
-        average_score: float | None = None
-        has_scores = len(documents) > 0 and all(doc.metadata.get('score') is not None for doc in documents)
-        if has_scores:
-            average_score = sum(doc.metadata['score'] for doc in documents) / len(documents)
-            if 0 <= average_score <= 1:
-                average_score = int(average_score * 100)
-            elif average_score < -1:
-                average_score = int((average_score + 10) * 10)
-        start_time = time.perf_counter()
-        output = super().invoke(input_args, config, **kwargs)
-        end_time = time.perf_counter()
-        output['llm_time'] = end_time - start_time
-        output['score'] = average_score
-        return output
+#         # if prompt is not None:
+#         #     print("Using a custom prompt", prompt)
+#         #     template = "Summarize the text in less than 3 phrases."
+# #         else:
+# #             template = """<human>: Use the following pieces of context to answer the user question.
+# # This context retrieved from a knowledge base and you should use only the facts from the context to answer.
+# # Your answer must be based on the context. If the context not contain the answer, just say that 'I don't know',
+# # don't try to make up an answer, use the context.
+# # Don't address the context directly, but use it to answer the user question like it's your own knowledge.
+# # Answer in short, use up to 10 words.
+
+# # Context:
+# # {context}
+
+# # Question: {query}
+# # <bot>:
+# # """
+#         # prompt = PromptTemplate.from_template(template)
+#         prompt_template = """Summarize this text: {text}"""
+#         prompt = PromptTemplate(
+#             input_variables=["text"], template=prompt_template
+#         )
+        super().__init__(llm=base_llm, prompt=prompt)
+        # super().__init__(llm=base_llm)
+
+    # def invoke(
+    #         self,
+    #         input_args: Dict[str, Any],
+    #         config: Optional[RunnableConfig] = None,
+    #         **kwargs: Any,
+    # ) -> Dict[str, Any]:
+    #     """
+    #     Override on LLMChain.invoke() to add a confidence score
+    #     """
+    #     print("INVOKE", input_args)
+    #     # documents= input_args['context']
+    #     # print("documents", documents)
+    #     # average_score: float | None = None
+    #     # has_scores = len(documents) > 0 and all(doc.metadata.get('score') is not None for doc in documents)
+    #     # if has_scores:
+    #     #     average_score = sum(doc.metadata['score'] for doc in documents) / len(documents)
+    #     #     if 0 <= average_score <= 1:
+    #     #         average_score = int(average_score * 100)
+    #     #     elif average_score < -1:
+    #     #         average_score = int((average_score + 10) * 10)
+    #     # start_time = time.perf_counter()
+    #     output = super().invoke(input_args)
+    #     print("OUTPUT", output)
+    #     # end_time = time.perf_counter()
+    #     # output['llm_time'] = end_time - start_time
+    #     # output['score'] = average_score
+    #     return output

@@ -39,7 +39,8 @@ for item in data_list:
     model_id = item.get("model_id")
     file = item.get("file")
     prompt = item.get("prompt")
-    model_value = ModelValue(model_id, file, prompt)
+    task = item.get("task")
+    model_value = ModelValue(model_id, file, prompt, task)
     model_values[model_id] = model_value
 
 @app.post("/summarize")
@@ -102,8 +103,8 @@ async def make_predictionl():
     """Make a prediction using selected model."""
     if "text" not in request.form:
         return ("Error: Missing text content", 400)
-    # if "model" not in request.form:
-    #     return ("Error: Missing selected model", 400)
+    if "model" not in request.form:
+        return ("Error: Missing selected model", 400)
     # if "sentence_transformer" not in request.form:
     #     return ("Error: Missing sentence transformer", 400)
 
@@ -144,8 +145,8 @@ async def make_predictionl():
     #     sentence_transformer = SentenceTransformer.ALL_MINILM_L12_V2
     # print(f"Using sentence transformer: {sentence_transformer.name}")
 
-    rag = Rag(model=model)
-    print("RAG created.")
+    llm = RagLLMChain(model=model)
+    print("LLM created.")
     # sources = [
     #     "data/Victor_Hugo_Notre-Dame_De_Paris_en.epub",
     #     "data/Victor_Hugo_Les_Miserables_Fantine_1_of_5_en.epub",
@@ -155,11 +156,18 @@ async def make_predictionl():
     # for source in sources:
     #     print(f"Loading {source}...")
     #     rag.add_document(source)
-    previous_request = "Summarize this document : " + text
-    previous_context: list[Document] = []
-    print("REQUEST", previous_request)
-    response = rag.invoke(previous_request)
-    print("RESPONSE", response)
+    # query = "\<human>\: " +  "Summarize this document : " + text + "\n" + "\<bot>\:"
+    # previous_context: list[Document] = []
+    # input_args = {
+    #                 "context": {},
+    #                 "query": query
+    #             }
+    # print("REQUEST", query)
+    # response = llm.invoke(input_args)
+    # input_args = text
+    # print("INPUT_ARGS", input_args)
+    # question = "What color is a banana?"
+    response = llm.invoke({"text": text})
     # previous_request = response['query']
     # previous_context = response['context']
     # score = response.get('score')
@@ -168,10 +176,10 @@ async def make_predictionl():
     # total_time = response['total_time']
     # llm_time = response['llm_time']
     # print(f"Total time: {total_time:.2f} seconds (LLM: {llm_time:.2f} s)")
-    print("TEXT", response['text'])
+    # print("TEXT", response['text'])
     return jsonify(
         {
-            "request": "OK",
+            "response": response,
         }
     )
 
