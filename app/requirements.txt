@@ -11,6 +11,7 @@ langchain==0.1.8
 langchain-community==0.0.21
 langchain-core==0.1.25
 langdetect==1.0.9
+langchain-huggingface==0.0.1
 nltk==3.8.1
 numpy==1.26.4
 pandoc==2.3

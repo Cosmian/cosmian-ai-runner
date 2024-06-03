@@ -40,8 +40,10 @@ for item in data_list:
     file = item.get("file")
     prompt = item.get("prompt")
     task = item.get("task")
-    model_value = ModelValue(model_id, file, prompt, task)
+    kwargs = item.get("kwargs")
+    model_value = ModelValue(model_id, file, prompt, task, kwargs)
     model_values[model_id] = model_value
+
 
 @app.post("/summarize")
 @check_token()
@@ -105,78 +107,29 @@ async def make_predictionl():
         return ("Error: Missing text content", 400)
     if "model" not in request.form:
         return ("Error: Missing selected model", 400)
-    # if "sentence_transformer" not in request.form:
-    #     return ("Error: Missing sentence transformer", 400)
 
     text = request.form["text"]
     model_name = request.form["model"]
-    # sentence_transformer_name = request.form["sentence_transformer"]
 
     if is_gpu_available():
         print("GPU is available.")
 
     # Choose the model
     if model_name:
-        model = model_values[model_name]
-        if model is None:
-            print(f"Model {model_name} not found.")
-            return jsonify(
-                {
-                    "request": "KO",
-                }
-            )
+        try:
+            model = model_values[model_name]
+        except KeyError as e:
+            return (f"Error model not found: {e}", 404)
+
     # elif is_gpu_available():
     #     model = Model.MIXTRAL_8x7B
     # else:
     #     model = Model.DRAGON_MISTRAL_7B_V0_Q5
+
     print(f"Using LLM: {model.model_id}")
-
-    # Choose the sentence transformer
-    # if sentence_transformer_name:
-    #     sentence_transformer = SentenceTransformer[sentence_transformer_name]
-    #     if sentence_transformer is None:
-    #         print(f"Sentence transformer {sentence_transformer_name} not found.")
-    #         return jsonify(
-    #             {
-    #                 "request": "KO",
-    #             }
-    #         )
-    # else:
-    #     sentence_transformer = SentenceTransformer.ALL_MINILM_L12_V2
-    # print(f"Using sentence transformer: {sentence_transformer.name}")
-
     llm = RagLLMChain(model=model)
     print("LLM created.")
-    # sources = [
-    #     "data/Victor_Hugo_Notre-Dame_De_Paris_en.epub",
-    #     "data/Victor_Hugo_Les_Miserables_Fantine_1_of_5_en.epub",
-    #     # "data/Victor_Hugo_Ruy_Blas_fr.epub",
-    # ]
-    # print("RAG populated.")
-    # for source in sources:
-    #     print(f"Loading {source}...")
-    #     rag.add_document(source)
-    # query = "\<human>\: " +  "Summarize this document : " + text + "\n" + "\<bot>\:"
-    # previous_context: list[Document] = []
-    # input_args = {
-    #                 "context": {},
-    #                 "query": query
-    #             }
-    # print("REQUEST", query)
-    # response = llm.invoke(input_args)
-    # input_args = text
-    # print("INPUT_ARGS", input_args)
-    # question = "What color is a banana?"
     response = llm.invoke({"text": text})
-    # previous_request = response['query']
-    # previous_context = response['context']
-    # score = response.get('score')
-    # if score is not None:
-    #     print(f"Score: {response['score']}%. ", end="")
-    # total_time = response['total_time']
-    # llm_time = response['llm_time']
-    # print(f"Total time: {total_time:.2f} seconds (LLM: {llm_time:.2f} s)")
-    # print("TEXT", response['text'])
     return jsonify(
         {
             "response": response,
@@ -188,9 +141,8 @@ async def make_predictionl():
 @check_token()
 async def list_models():
     """List all the configured models."""
-    models = model_values.keys()
     return jsonify(
         {
-            "models": list(models),
+            "models": list(model_values),
         }
     )

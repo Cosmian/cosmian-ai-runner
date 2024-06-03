@@ -5,7 +5,6 @@ from .model_pipeline import ModelPipeline
 
 
 class Summarizer(ModelPipeline):
-
     def __init__(
         self,
         model_name: str,

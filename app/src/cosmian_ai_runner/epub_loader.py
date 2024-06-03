@@ -11,9 +11,10 @@ except AttributeError:
     pass
 else:
     ssl._create_default_https_context = _create_unverified_https_context
-nltk.download('punkt')
+nltk.download("punkt")
 
 
 def load_epub(epub_path: str) -> Document:
     from langchain_community.document_loaders import UnstructuredEPubLoader
+
     return UnstructuredEPubLoader(epub_path, mode="single").load()[0]

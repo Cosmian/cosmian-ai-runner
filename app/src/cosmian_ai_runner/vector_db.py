@@ -23,12 +23,22 @@ class SentenceTransformer(Enum):
             self.score_threshold = score_threshold
 
     ALL_MPNET_BASE_V2 = STValue("sentence-transformers/all-mpnet-base-v2")
-    DISTILUSE_BASE_MULTILINGUAL_CASED_V1 = STValue("sentence-transformers/distiluse-base-multilingual-cased-v1")
-    ALL_MINILM_L6_V2 = STValue("sentence-transformers/all-MiniLM-L6-v2", score_threshold=0.2)
-    ALL_MINILM_L12_V2 = STValue("sentence-transformers/all-MiniLM-L12-v2", score_threshold=0.2)
-    PARAPHRASE_MULTILINGUAL_MINILM_L12_V2 = STValue("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                                                    score_threshold=-10)
-    PARAPHRASE_MULTILINGUAL_MPNET_BASE_V2 = STValue("sentence-transformers/paraphrase-multilingual-mpnet-base-v2")
+    DISTILUSE_BASE_MULTILINGUAL_CASED_V1 = STValue(
+        "sentence-transformers/distiluse-base-multilingual-cased-v1"
+    )
+    ALL_MINILM_L6_V2 = STValue(
+        "sentence-transformers/all-MiniLM-L6-v2", score_threshold=0.2
+    )
+    ALL_MINILM_L12_V2 = STValue(
+        "sentence-transformers/all-MiniLM-L12-v2", score_threshold=0.2
+    )
+    PARAPHRASE_MULTILINGUAL_MINILM_L12_V2 = STValue(
+        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        score_threshold=-10,
+    )
+    PARAPHRASE_MULTILINGUAL_MPNET_BASE_V2 = STValue(
+        "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    )
 
 
 class FilteredRetriever(VectorStoreRetriever):
@@ -36,16 +46,19 @@ class FilteredRetriever(VectorStoreRetriever):
     A retriever that filters the results based on a score threshold.
     The retriever will insert the score of the document in the metadata.
     """
+
     vectorstore: VectorStore
     score_threshold: Any = None  # the minimum similarity score to return.
     max_results: int = 4  # equivalent to the k factor in the similarity_search method
 
     def get_relevant_documents(self, query: str, **kwargs: Any) -> List[Document]:
         documents: list[Document] = []
-        results = self.vectorstore.similarity_search_with_relevance_scores(query, k=self.max_results)
+        results = self.vectorstore.similarity_search_with_relevance_scores(
+            query, k=self.max_results
+        )
         for doc, score in results:
             if self.score_threshold is None or score > self.score_threshold:
-                doc.metadata['score'] = score
+                doc.metadata["score"] = score
                 documents.append(doc)
         return documents
 
@@ -57,16 +70,21 @@ class VectorDB(VectorStore):
     _score_threshold: Any
     _max_results: int
 
-    def __init__(self,
-                 sentence_transformer: SentenceTransformer = SentenceTransformer.PARAPHRASE_MULTILINGUAL_MINILM_L12_V2,
-                 chunk_size: int = 256,
-                 chunk_overlap: int = 0,
-                 max_results=4
-                 ):
-        self._embeddings = HuggingFaceEmbeddings(model_name=sentence_transformer.value.file)
+    def __init__(
+        self,
+        sentence_transformer: SentenceTransformer = SentenceTransformer.PARAPHRASE_MULTILINGUAL_MINILM_L12_V2,
+        chunk_size: int = 256,
+        chunk_overlap: int = 0,
+        max_results=4,
+    ):
+        self._embeddings = HuggingFaceEmbeddings(
+            model_name=sentence_transformer.value.file
+        )
         self._score_threshold = sentence_transformer.value.score_threshold
         self._max_results = max_results
-        self._splitter = CharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        self._splitter = CharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        )
         self._db = FAISS.from_texts(["dummy"], self._embeddings)
 
     @property
@@ -87,21 +105,33 @@ class VectorDB(VectorStore):
     def max_results(self) -> int:
         return self._max_results
 
-    def add_texts(self, texts: Iterable[str], metadatas: Optional[List[dict]] = None, **kwargs: Any) -> List[str]:
+    def add_texts(
+        self,
+        texts: Iterable[str],
+        metadatas: Optional[List[dict]] = None,
+        **kwargs: Any,
+    ) -> List[str]:
         """
         Override the add_texts method to add texts to the database.
         """
         return self._db.add_texts(texts, metadatas, **kwargs)
 
-    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> List[Document]:
+    def similarity_search(
+        self, query: str, k: int = 4, **kwargs: Any
+    ) -> List[Document]:
         """
         Override the similarity_search method to perform a similarity search.
         """
         return self._db.similarity_search(query, k, **kwargs)
 
     @classmethod
-    def from_texts(cls: Type[VST], texts: List[str], embedding: Embeddings, metadatas: Optional[List[dict]] = None,
-                   **kwargs: Any) -> VST:
+    def from_texts(
+        cls: Type[VST],
+        texts: List[str],
+        embedding: Embeddings,
+        metadatas: Optional[List[dict]] = None,
+        **kwargs: Any,
+    ) -> VST:
         """
         Create a VectorStore from a list of texts.
         Override the from_texts method to create a VectorStore from a list of texts.
@@ -115,7 +145,7 @@ class VectorDB(VectorStore):
         return self._db._select_relevance_score_fn()
 
     def similarity_search_with_score(
-            self, *args: Any, **kwargs: Any
+        self, *args: Any, **kwargs: Any
     ) -> List[Tuple[Document, float]]:
         """
         Override the similarity_search_with_score method to return the results with the relevance scores.
@@ -130,7 +160,11 @@ class VectorDB(VectorStore):
         :param kwargs: ignored
         :return: the retriever
         """
-        return FilteredRetriever(vectorstore=self, score_threshold=self._score_threshold, max_results=self._max_results)
+        return FilteredRetriever(
+            vectorstore=self,
+            score_threshold=self._score_threshold,
+            max_results=self._max_results,
+        )
 
     def insert(self, document_path: str):
         document = __load_document__(document_path)

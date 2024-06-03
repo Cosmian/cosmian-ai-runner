@@ -51,7 +51,6 @@ LANGUAGE_CODES = {
 
 
 class Translator(ModelPipeline):
-
     def __init__(self, model_name: str, generation_config: Dict = {}):
         self.generation_config = generation_config
         self.lang_to_code = LANGUAGE_CODES
