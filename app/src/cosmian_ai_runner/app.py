@@ -127,14 +127,17 @@ async def make_predictionl():
     #     model = Model.DRAGON_MISTRAL_7B_V0_Q5
 
     print(f"Using LLM: {model.model_id}")
-    llm = RagLLMChain(model=model)
-    print("LLM created.")
-    response = llm.invoke({"text": text})
-    return jsonify(
-        {
-            "response": response,
-        }
-    )
+    try:
+        llm = RagLLMChain(model=model)
+        print("LLM created.")
+        response = llm.invoke({"text": text})
+        return jsonify(
+            {
+                "response": response,
+            }
+        )
+    except Exception as e:
+        return (f"Error during prediction: {e}", 404)
 
 
 @app.get("/models")
@@ -143,6 +146,6 @@ async def list_models():
     """List all the configured models."""
     return jsonify(
         {
-            "models": list(model_values),
+            "models": data_list,
         }
     )

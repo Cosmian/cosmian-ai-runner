@@ -23,38 +23,6 @@ class ModelValue:
         self.kwargs = kwargs
 
 
-# DRAGON_MISTRAL_ANSWER_TOOL = ModelValue(model_id="llmware/dragon-mistral-answer-tool", file="dragon-mistral.gguf", prompt=None)
-# DRAGON_YI_6B_V0 = ModelValue(model_id="llmware/dragon-yi-6b-v0", file="dragon-yi-6b-q4_k_m.gguf", prompt=None)
-# DRAGON_YI_6B_V0_GGUF = ModelValue(
-#     model_id="TheBloke/dragon-yi-6B-v0-GGUF",
-#     file="dragon-yi-6b-v0.Q4_K_M.gguf",
-#     prompt=None
-# )
-# DRAGON_MISTRAL_7B_V0_Q4 = ModelValue(
-#     model_id="llmware/dragon-mistral-7b-v0",
-#     file="dragon-mistral-7b-q4_k_m.gguf",
-#     prompt=None
-# )
-# DRAGON_MISTRAL_7B_V0_Q5 = ModelValue(
-#     model_id="TheBloke/dragon-mistral-7B-v0-GGUF",
-#     file="dragon-mistral-7b-v0.Q5_K_M.gguf",
-#     prompt=None
-# )
-# MIXTRAL_8x7B = ModelValue(model_id="mistralai/Mixtral-8x7B-Instruct-v0.1", file=None,
-#                               prompt="""Use the following pieces of context to answer the user question.
-# This context retrieved from a knowledge base and you should use only the facts from the context to answer.
-# Your answer must be based on the context. If the context not contain the answer, just say that 'I don't know',
-# don't try to make up an answer, use the context.
-# Don't address the context directly, but use it to answer the user question like it's your own knowledge.
-# Answer in short, use up to 10 words.
-
-# Context:
-# {context}
-
-# Question: {query}.
-# """)
-
-
 def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     """
     Load a model using HuggingFace pipeline
@@ -85,7 +53,7 @@ def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     return base_llm
 
 
-def __load_hf_gguf_model__(model_id: str, model_file: str = None) -> BaseLLM:
+def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
     """
     Load a Huggingface model with GGUF quantization using the CTransformers LLM
     :param model_id: The Huggingface model ID
@@ -93,17 +61,8 @@ def __load_hf_gguf_model__(model_id: str, model_file: str = None) -> BaseLLM:
     :return: the model as a Langchain BaseLLM
     """
 
-    # see: https://python.langchain.com/docs/integrations/providers/ctransformers
     from langchain_community.llms import CTransformers
 
-    # parameters available: https://github.com/marella/ctransformers#config
-    config = {
-        "max_new_tokens": 256,
-        "temperature": 0.01,
-        "context_length": 4096,
-        "repetition_penalty": 1.1,
-        "gpu_layers": 50 if is_gpu_available() else 0,
-    }
     base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
     if is_gpu_available():
         from accelerate import Accelerator
@@ -124,7 +83,9 @@ class RagLLMChain(LLMChain):
             ".gguf"
         )
         if is_gguf:
-            base_llm = __load_hf_gguf_model__(model_id=model_id, model_file=model_file)
+            base_llm = __load_hf_gguf_model__(
+                model_id=model_id, model_file=model_file, config=kwargs
+            )
         else:
             base_llm = __load_hf_model__(model_id=model_id, task=task, kwargs=kwargs)
         from langchain.prompts import PromptTemplate
