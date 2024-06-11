@@ -121,11 +121,6 @@ async def make_predictionl():
         except KeyError as e:
             return (f"Error model not found: {e}", 404)
 
-    # elif is_gpu_available():
-    #     model = Model.MIXTRAL_8x7B
-    # else:
-    #     model = Model.DRAGON_MISTRAL_7B_V0_Q5
-
     print(f"Using LLM: {model.model_id}")
     try:
         llm = RagLLMChain(model=model)
@@ -137,7 +132,7 @@ async def make_predictionl():
             }
         )
     except Exception as e:
-        return (f"Error during prediction: {e}", 404)
+        return (f"Error during prediction: {e}", 400)
 
 
 @app.get("/models")

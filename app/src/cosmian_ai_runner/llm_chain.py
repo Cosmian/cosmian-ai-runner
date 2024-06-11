@@ -30,6 +30,7 @@ def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     :return: the model as a Langchain BaseLLM
     """
     from langchain_huggingface import HuggingFacePipeline
+    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
     # from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
     #                           AutoTokenizer, pipeline)
@@ -45,12 +46,16 @@ def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     #     model.to("cuda")
     # else:
     #     model = AutoModelForCausalLM.from_pretrained(model_id)
-    base_llm = HuggingFacePipeline.from_model_id(
-        model_id=model_id,
-        task=task,
-        pipeline_kwargs=kwargs,
-    )
+    # base_llm = HuggingFacePipeline.from_model_id(
+    #     model_id=model_id,
+    #     task=task,
+    #     pipeline_kwargs=kwargs,
+    # )
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    pipe = pipeline(task, model=model_id, tokenizer=tokenizer, **kwargs)
+    base_llm = HuggingFacePipeline(pipeline=pipe)
     return base_llm
+
 
 
 def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
@@ -62,14 +67,16 @@ def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
     """
 
     from langchain_community.llms import CTransformers
+    try:
+        base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
+    # if is_gpu_available():
+    #     from accelerate import Accelerator
 
-    base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
-    if is_gpu_available():
-        from accelerate import Accelerator
-
-        accelerator = Accelerator()
-        base_llm, config = accelerator.prepare(base_llm, config)
-    return base_llm
+    #     accelerator = Accelerator()
+    #     base_llm, config = accelerator.prepare(base_llm, config)
+        return base_llm
+    except Exception as e:
+        print("Error", e)
 
 
 class RagLLMChain(LLMChain):
