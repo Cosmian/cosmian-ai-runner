@@ -4,11 +4,11 @@ from enum import Enum
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Type
 
 from langchain.text_splitter import CharacterTextSplitter, TextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.vectorstores import VST, VectorStore, VectorStoreRetriever
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
 from .epub_loader import load_epub
 
@@ -86,6 +86,13 @@ class VectorDB(VectorStore):
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
         self._db = FAISS.from_texts(["dummy"], self._embeddings)
+        # if os.path.isdir("faiss_index"):
+        #     self._db = FAISS.load_local("faiss_index", self._embeddings)
+        # else:
+        #     db = FAISS.from_texts(["dummy"], self._embeddings)
+        #     db.save_local("faiss_index")
+        #     self._db = db
+
 
     @property
     def embeddings(self) -> Optional[Embeddings]:

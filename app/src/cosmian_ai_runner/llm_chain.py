@@ -13,7 +13,6 @@ from .detect import is_gpu_available
 
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
-
 class ModelValue:
     def __init__(self, model_id: str, file: Any, prompt: Any, task: str, kwargs: Any):
         self.model_id = model_id
@@ -100,3 +99,30 @@ class RagLLMChain(LLMChain):
         template = initial_prompt
         prompt = PromptTemplate.from_template(template)
         super().__init__(llm=base_llm, prompt=prompt)
+
+
+    # def invoke(
+    #         self,
+    #         input_args: Dict[str, Any],
+    #         config: Optional[RunnableConfig] = None,
+    #         **kwargs: Any,
+    # ) -> Dict[str, Any]:
+    #     """
+    #     Override on LLMChain.invoke() to add a confidence score
+    #     """
+    #     print("INVOKATION")
+    #     documents: list[Document] = input_args['context']
+    #     average_score: float | None = None
+    #     has_scores = len(documents) > 0 and all(doc.metadata.get('score') is not None for doc in documents)
+    #     if has_scores:
+    #         average_score = sum(doc.metadata['score'] for doc in documents) / len(documents)
+    #         if 0 <= average_score <= 1:
+    #             average_score = int(average_score * 100)
+    #         elif average_score < -1:
+    #             average_score = int((average_score + 10) * 10)
+    #     start_time = time.perf_counter()
+    #     output = super().invoke(input_args, config, **kwargs)
+    #     end_time = time.perf_counter()
+    #     output['llm_time'] = end_time - start_time
+    #     output['score'] = average_score
+    #     return output
