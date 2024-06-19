@@ -14,6 +14,7 @@ from .epub_loader import load_epub
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
+
 class STValue:
     def __init__(self, file: str, score_threshold: Any = None):
         self.file = file
@@ -56,9 +57,7 @@ class VectorDB(VectorStore):
         chunk_overlap: int = 0,
         max_results=4,
     ):
-        self._embeddings = HuggingFaceEmbeddings(
-            model_name=sentence_transformer.file
-        )
+        self._embeddings = HuggingFaceEmbeddings(model_name=sentence_transformer.file)
         self._score_threshold = sentence_transformer.score_threshold
         self._max_results = max_results
         self._splitter = CharacterTextSplitter(

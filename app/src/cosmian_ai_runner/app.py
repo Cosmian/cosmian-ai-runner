@@ -11,8 +11,12 @@ from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_huggingface import HuggingFacePipeline
-from transformers import (AutoModelForCausalLM, AutoTokenizer,
-                          BitsAndBytesConfig, pipeline)
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    pipeline,
+)
 
 from .auth import check_token
 from .config import AppConfig
@@ -72,6 +76,7 @@ print("RAG created.")
 #     print(f"Loading {source}...")
 #     rag.add_document(source)
 # print("RAG populated.")
+
 
 @app.post("/summarize")
 @check_token()
@@ -173,6 +178,7 @@ async def list_models():
         }
     )
 
+
 @app.post("/rag")
 @check_token()
 async def build_rag():
@@ -202,6 +208,7 @@ async def build_rag():
         )
     except Exception as e:
         return (f"Error during prediction: {e}", 400)
+
 
 @app.post("/add_document")
 @check_token()
