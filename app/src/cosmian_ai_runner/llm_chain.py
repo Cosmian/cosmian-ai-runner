@@ -30,27 +30,23 @@ def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     """
     from langchain_huggingface import HuggingFacePipeline
     from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-
-    # from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
-    #                           AutoTokenizer, pipeline)
-    # tokenizer = AutoTokenizer.from_pretrained(model_id)
+    hf_token = os.environ.get('HF_TOKEN')
+    tokenizer = AutoTokenizer.from_pretrained(model_id, token=hf_token, model_max_length=512)
+    # device = 'cuda' if torch.cuda.is_available() else torch.device("mps") \
+    #     if torch.backends.mps.is_available() else 'cpu'
     # if is_gpu_available():
-    #     model = AutoModelForCausalLM.from_pretrained(
-    #         model_id,
-    #         torch_dtype=torch.bfloat16,
-    #         attn_implementation="flash_attention_2",
-    #         trust_remote_code=True,
-    #         device_map="cuda:0",
-    #     )
-    #     model.to("cuda")
-    # else:
-    #     model = AutoModelForCausalLM.from_pretrained(model_id)
-    # base_llm = HuggingFacePipeline.from_model_id(
-    #     model_id=model_id,
-    #     task=task,
-    #     pipeline_kwargs=kwargs,
+    # print(f"Using device: {device}")
+    # model = AutoModelForCausalLM.from_pretrained(
+    #     model_id,
+    #     torch_dtype=torch.bfloat16,
+    #     attn_implementation="flash_attention_2" if device == "cuda" else None,
+    #     trust_remote_code=True,
+    #     device_map="cuda:0" if device == "cuda" else None,
+    #     token=hf_token
     # )
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    # model.to("cuda")
+    # model.to(device)
+    # tokenizer = AutoTokenizer.from_pretrained(model_id)
     pipe = pipeline(task, model=model_id, tokenizer=tokenizer, **kwargs)
     base_llm = HuggingFacePipeline(pipeline=pipe)
     return base_llm
@@ -68,11 +64,11 @@ def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
     from langchain_community.llms import CTransformers
     try:
         base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
-    # if is_gpu_available():
-    #     from accelerate import Accelerator
-
-    #     accelerator = Accelerator()
-    #     base_llm, config = accelerator.prepare(base_llm, config)
+        gpu_available = torch.cuda.is_available() or torch.backends.mps.is_available()
+        if gpu_available:
+            from accelerate import Accelerator
+            accelerator = Accelerator()
+            base_llm, config = accelerator.prepare(base_llm, config)
         return base_llm
     except Exception as e:
         print("Error", e)
@@ -101,28 +97,34 @@ class RagLLMChain(LLMChain):
         super().__init__(llm=base_llm, prompt=prompt)
 
 
-    # def invoke(
-    #         self,
-    #         input_args: Dict[str, Any],
-    #         config: Optional[RunnableConfig] = None,
-    #         **kwargs: Any,
-    # ) -> Dict[str, Any]:
-    #     """
-    #     Override on LLMChain.invoke() to add a confidence score
-    #     """
-    #     print("INVOKATION")
-    #     documents: list[Document] = input_args['context']
-    #     average_score: float | None = None
-    #     has_scores = len(documents) > 0 and all(doc.metadata.get('score') is not None for doc in documents)
-    #     if has_scores:
-    #         average_score = sum(doc.metadata['score'] for doc in documents) / len(documents)
-    #         if 0 <= average_score <= 1:
-    #             average_score = int(average_score * 100)
-    #         elif average_score < -1:
-    #             average_score = int((average_score + 10) * 10)
-    #     start_time = time.perf_counter()
-    #     output = super().invoke(input_args, config, **kwargs)
-    #     end_time = time.perf_counter()
-    #     output['llm_time'] = end_time - start_time
-    #     output['score'] = average_score
-    #     return output
+    def invoke(
+            self,
+            input_args: Dict[str, Any],
+            config: Optional[RunnableConfig] = None,
+            **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """
+        Override on LLMChain.invoke() to add a confidence score
+        """
+        if  "context" in input_args:
+            documents: list[Document] = input_args['context']
+            text = ' '.join([doc.page_content for doc in documents])
+            average_score: float | None = None
+            has_scores = len(documents) > 0 and all(doc.metadata.get('score') is not None for doc in documents)
+            if has_scores:
+                average_score = sum(doc.metadata['score'] for doc in documents) / len(documents)
+                if 0 <= average_score <= 1:
+                    average_score = int(average_score * 100)
+                elif average_score < -1:
+                    average_score = int((average_score + 10) * 10)
+        elif "text" in input_args:
+            text = input_args["text"]
+        else:
+            raise Exception("Missing text argument.")
+        # start_time = time.perf_counter()
+        output = super().invoke({"text": text}, config, **kwargs)
+        # output = super().invoke(input_args, config, **kwargs)
+        # end_time = time.perf_counter()
+        # output['llm_time'] = end_time - start_time
+        # output['score'] = average_score
+        return output

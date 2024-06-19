@@ -27,10 +27,10 @@ class SentenceTransformer(Enum):
         "sentence-transformers/distiluse-base-multilingual-cased-v1"
     )
     ALL_MINILM_L6_V2 = STValue(
-        "sentence-transformers/all-MiniLM-L6-v2", score_threshold=0.2
+        "sentence-transformers/all-MiniLM-L6-v2", score_threshold=0.12
     )
     ALL_MINILM_L12_V2 = STValue(
-        "sentence-transformers/all-MiniLM-L12-v2", score_threshold=0.2
+        "sentence-transformers/all-MiniLM-L12-v2", score_threshold=0.12
     )
     PARAPHRASE_MULTILINGUAL_MINILM_L12_V2 = STValue(
         "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
@@ -183,26 +183,3 @@ def __load_document__(path: str) -> Document:
     if path.endswith(".epub"):
         return load_epub(path)
     raise ValueError(f"Unsupported file type: {path}")
-
-
-def __query_and_print__(vector_db: VectorDB, questions: list[str]):
-    retriever = vector_db.as_retriever()
-    for question in questions:
-        results = retriever.invoke(question)
-        print(f"Question: {question}")
-        for count, doc in enumerate(results):
-            print(f"  {count} => \n{doc.page_content}\n{doc.metadata}\n\n")
-        print("\n\n")
-
-
-if __name__ == "__main__":
-    import logging
-
-    logging.getLogger().setLevel(logging.ERROR)
-    db = VectorDB()
-    db.insert("data/Victor_Hugo_Notre-Dame_De_Paris_en.epub")
-    queries = [
-        "Describe Notre-Dame de Paris",
-        "Who is Victor Hugo?",
-    ]
-    __query_and_print__(db, queries)
