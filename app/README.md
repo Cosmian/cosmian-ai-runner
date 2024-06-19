@@ -45,7 +45,7 @@ The config is written as a JSON file, with different parts:
 ### Auth
 
 Optional part to fill the identity providers information.
-If not `auth` information is present in the config file, the authentication will be disabled.
+If no `auth` information is present in the config file, the authentication will be disabled.
 
 It should contain a list of the following fields per identity providers:
 
@@ -69,6 +69,59 @@ You can find more information about text generation [here](https://huggingface.c
 Information about the translation model to use and generation parameters.
 
 We recommend to use `facebook/nllb-200-distilled-600M` (600M parameters).
+
+### Models
+
+Models configuration defines available models for `/predict` and `/rag` routes.
+
+For classic huggingface pipeline models, model configuration should be structured as follow:
+
+```json
+        {
+            "model_id": "facebook/bart-large-cnn",
+            "task": "summarization",
+            "prompt": "{text}",
+            "kwargs": {
+                "temperature": 0.1,
+                "do_sample": true,
+                "truncation": true,
+                "max_new_tokens": 200
+            }
+        }
+```
+
+For gguf models, model should be structured as follow (selected file, over different available quantizations must be precised):
+
+```json
+      {
+          "model_id": "TheBloke/Spring-Dragon-GGUF",
+          "file": "spring-dragon.Q2_K.gguf",
+          "prompt": "",
+          "kwargs": {
+              "max_new_tokens": 256,
+              "temperature": 0.01,
+              "context_length": 4096,
+              "repetition_penalty": 1.1,
+              "gpu_layers": 0
+          }
+      }
+```
+
+### Sentence Transformer
+
+Sentence transformer configuration defines which setence transformer to use when creating RAG (on server launch).
+
+```json
+  {
+    "sentence_transformer":
+    {
+        "file": "sentence-transformers/all-MiniLM-L12-v2",
+        "score_threshold": 0.12
+    }
+  }
+  ```
+
+If no element is configured, RAG is not created and `/rag` routes will send an error when fetched.
 
 ### Sample config file
 
@@ -144,3 +197,65 @@ curl 'http://0.0.0.0:5000/summarize' \
 curl 'http://0.0.0.0:5000/translate' \
 --form 'doc="Il était une fois, dans un royaume couvert de vert émeraude et voilé dans les secrets murmurants des arbres anciens, vivait une princesse nommée Elara.."' --form 'src_lang=fr'  --form 'tgt_lang=en'
 ```
+
+### Predict
+
+- Endpoint: `/predict`
+- Method: **POST**
+- Description: get prediction from a model available in application configuration (using
+  HuggingFacePipeline, or a gguf model)
+- Request:
+  - Headers: 'Content-Type: multipart/form-data'
+  - Body:
+    `text` - text to use for prediction
+    `model` - model_id to use for inference
+- Response:
+```json
+  {
+    "response": "generated text..."
+  }
+```
+- Example:
+```
+curl 'http://0.0.0.0:5000/predict' \
+--form 'text="What color is a banana?"' --form 'model="google/flan-t5-small"'
+```
+
+You can list available models from current configuration using:
+- Endpoint: `/models`
+- Method: **GET**
+
+###  RAG
+
+Those routes are available if a sentence_transformer has been provided in the configuration file.
+The sentence_transformer is used to create and infer vectors
+- Endpoint: `/rag`
+- Method: **POST**
+- Description: get prediction from a RAG, using a model available in application configuration
+- Request:
+  - Headers: 'Content-Type: multipart/form-data'
+  - Body:
+    `text` - text to use for rag request
+    `model` - model_id to use for inference after RAG step
+- Response:
+```json
+  {
+    "response": "generated text..."
+  }
+```
+- Example:
+```
+curl 'http://0.0.0.0:5000/rag' \
+--form 'text="Who is Esmeralda?"' --form 'model="facebook/bart-large-cnn"'
+```
+
+You can add an `.epub` document to the vector DB of the current RAG, using:
+- Endpoint: `/add_document`
+- Method: **POST**
+- File sent on multipart
+- Example:
+```
+curl -F "file=@/path/data/Victor_Hugo_Notre-Dame_De_Paris_en.epub" http://0.0.0.0:5000/add_document
+```
+
+*So far, only epub files can be handled.*

@@ -32,8 +32,8 @@ class AppConfig:
         return None
 
     @classmethod
-    def get_sentence_transformers_config(cls) -> Optional[list]:
+    def get_sentence_transformer_config(cls) -> Optional[list]:
         config = cls.get()
-        if "sentence_transformers" in config:
-            return config["sentence_transformers"]
+        if "sentence_transformer" in config:
+            return config["sentence_transformer"]
         return None

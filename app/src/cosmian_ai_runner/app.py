@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import tempfile
 from http import HTTPStatus
 from typing import Dict
 
@@ -30,6 +31,7 @@ from .vector_db import STValue, VectorDB
 torch.set_num_threads(os.cpu_count() or 1)
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024 * 1024  # 1 GB
 app_asgi = WsgiToAsgi(app)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -54,19 +56,20 @@ for item in data_list:
     model_value = ModelValue(model_id, file, prompt, task, kwargs)
     model_values[model_id] = model_value
 
-sentence_transformers = {}
-data_list = AppConfig.get_sentence_transformers_config()
-for item in data_list:
-    file = item.get("file")
-    score_threshold = item.get("score_threshold")
+element = AppConfig.get_sentence_transformer_config()
+if element:
+    file = element.get("file")
+    score_threshold = element.get("score_threshold")
     sentence_transformer = STValue(file, score_threshold)
-    sentence_transformers[file] = sentence_transformer
 
-sentence_transformer = sentence_transformers["sentence-transformers/all-MiniLM-L12-v2"]
-print(f"Using sentence transformer: {sentence_transformer.file}")
+    print(f"Using sentence transformer: {sentence_transformer.file}")
 
-rag = Rag(sentence_transformer=sentence_transformer)
-print("RAG created.")
+    rag = Rag(sentence_transformer=sentence_transformer)
+    print("RAG created.")
+else:
+    rag = None
+    print("No sentence tranformer configured, RAG is not created.")
+
 # sources = [
 #     "data/Victor_Hugo_Notre-Dame_De_Paris_en.epub",
 #     # "data/Victor_Hugo_Les_Miserables_Fantine_1_of_5_en.epub",
@@ -182,6 +185,8 @@ async def list_models():
 @app.post("/rag")
 @check_token()
 async def build_rag():
+    if rag is None:
+        return ("RAG is not created - fobidden request", 404)
     if "text" not in request.form:
         return ("Error: Missing text content", 400)
 
@@ -213,37 +218,33 @@ async def build_rag():
 @app.post("/add_document")
 @check_token()
 async def add_doc():
-    if "source" not in request.form:
-        return ("Error: Missing source content", 400)
+    if rag is None:
+        return ("RAG is not created - fobidden request", 404)
+    if not os.path.exists("data"):
+        os.makedirs("data")
 
-    source = request.form["source"]
-    try:
-        print(f"Loading {source}...")
-        rag.add_document(source)
-        return ("Document added", 200)
-    except Exception as e:
-        return (f"Error adding document: {e}", 400)
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
 
-    # if not os.path.exists('data2'):
-    #     os.makedirs('data2')
-    # if 'file' not in request.files:
-    #     return jsonify({'error': 'No file part'}), 400
+    file = request.files["file"]
 
-    # file = request.files['file']
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
 
-    # if file.filename == '':
-    #     return jsonify({'error': 'No selected file'}), 400
+    if file and file.filename.endswith(".epub"):
+        file_ext = os.path.splitext(file.filename)[1]
+        with tempfile.NamedTemporaryFile(
+            dir="data", suffix=file_ext, delete=False
+        ) as temp_file:
+            temp_file_name = temp_file.name
+            file.save(temp_file_name)
 
-    # if file and file.filename.endswith('.epub'):
-    #     with tempfile.NamedTemporaryFile(dir='data2', delete=False) as temp_file:
-    #         temp_file_name = temp_file.name
-    #         file.save(temp_file_name)
-
-    #     try:
-    #         rag.add_document(temp_file_name)
-    #         return jsonify({'message': 'File successfully processed'}), 200
-    #     finally:
-    #         # Ensure the file is deleted after processing
-    #         os.remove(temp_file_name)
-    # else:
-    #     return jsonify({'error': 'Invalid file type'}), 400
+        try:
+            rag.add_document(temp_file_name)
+            return ("File successfully processed", 200)
+        except Exception as e:
+            return (f"Error adding file: {e}", 400)
+        finally:
+            os.remove(temp_file_name)
+    else:
+        return ("Invalid file extension - must be epub.", 400)
