@@ -29,25 +29,37 @@ def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     :return: the model as a Langchain BaseLLM
     """
     from langchain_huggingface import HuggingFacePipeline
-    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+    from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
+                              AutoTokenizer, pipeline)
     hf_token = os.environ.get('HF_TOKEN')
     tokenizer = AutoTokenizer.from_pretrained(model_id, token=hf_token, model_max_length=512)
-    # device = 'cuda' if torch.cuda.is_available() else torch.device("mps") \
-    #     if torch.backends.mps.is_available() else 'cpu'
-    # if is_gpu_available():
-    # print(f"Using device: {device}")
-    # model = AutoModelForCausalLM.from_pretrained(
-    #     model_id,
-    #     torch_dtype=torch.bfloat16,
-    #     attn_implementation="flash_attention_2" if device == "cuda" else None,
-    #     trust_remote_code=True,
-    #     device_map="cuda:0" if device == "cuda" else None,
-    #     token=hf_token
-    # )
-    # model.to("cuda")
+    device = 'cuda' if torch.cuda.is_available() else torch.device("mps") \
+        if torch.backends.mps.is_available() else 'cpu'
+    print(f"Using device: {device}")
+    if task == "text-generation":
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2" if device == "cuda" else None,
+            trust_remote_code=True,
+            device_map="cuda:0" if device == "cuda" else None,
+            token=hf_token
+        )
+    elif task in ("text2text-generation", "summarization", "translation"):
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            attn_implementation="flash_attention_2" if device == "cuda" else None,
+            trust_remote_code=True,
+            device_map="cuda:0" if device == "cuda" else None,
+            token=hf_token
+        )
+    else:
+        raise ValueError(
+                    f"Got invalid task {task}, "
+                )
     # model.to(device)
-    # tokenizer = AutoTokenizer.from_pretrained(model_id)
-    pipe = pipeline(task, model=model_id, tokenizer=tokenizer, **kwargs)
+    pipe = pipeline(task, model=model, tokenizer=tokenizer, **kwargs)
     base_llm = HuggingFacePipeline(pipeline=pipe)
     return base_llm
 
@@ -64,8 +76,7 @@ def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
     from langchain_community.llms import CTransformers
     try:
         base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
-        gpu_available = torch.cuda.is_available() or torch.backends.mps.is_available()
-        if gpu_available:
+        if is_gpu_available:
             from accelerate import Accelerator
             accelerator = Accelerator()
             base_llm, config = accelerator.prepare(base_llm, config)

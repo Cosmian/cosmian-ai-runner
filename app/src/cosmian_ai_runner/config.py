@@ -30,3 +30,10 @@ class AppConfig:
         if "models" in config:
             return config["models"]
         return None
+
+    @classmethod
+    def get_sentence_transformers_config(cls) -> Optional[list]:
+        config = cls.get()
+        if "sentence_transformers" in config:
+            return config["sentence_transformers"]
+        return None

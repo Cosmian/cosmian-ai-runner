@@ -14,31 +14,10 @@ from .epub_loader import load_epub
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
-
-# For the choice of embeddings, see: https://www.sbert.net/docs/pretrained_models.html#model-overview
-class SentenceTransformer(Enum):
-    class STValue:
-        def __init__(self, file: str, score_threshold: Any = None):
-            self.file = file
-            self.score_threshold = score_threshold
-
-    ALL_MPNET_BASE_V2 = STValue("sentence-transformers/all-mpnet-base-v2")
-    DISTILUSE_BASE_MULTILINGUAL_CASED_V1 = STValue(
-        "sentence-transformers/distiluse-base-multilingual-cased-v1"
-    )
-    ALL_MINILM_L6_V2 = STValue(
-        "sentence-transformers/all-MiniLM-L6-v2", score_threshold=0.12
-    )
-    ALL_MINILM_L12_V2 = STValue(
-        "sentence-transformers/all-MiniLM-L12-v2", score_threshold=0.12
-    )
-    PARAPHRASE_MULTILINGUAL_MINILM_L12_V2 = STValue(
-        "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-        score_threshold=-10,
-    )
-    PARAPHRASE_MULTILINGUAL_MPNET_BASE_V2 = STValue(
-        "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
-    )
+class STValue:
+    def __init__(self, file: str, score_threshold: Any = None):
+        self.file = file
+        self.score_threshold = score_threshold
 
 
 class FilteredRetriever(VectorStoreRetriever):
@@ -72,27 +51,20 @@ class VectorDB(VectorStore):
 
     def __init__(
         self,
-        sentence_transformer: SentenceTransformer = SentenceTransformer.PARAPHRASE_MULTILINGUAL_MINILM_L12_V2,
+        sentence_transformer: STValue,
         chunk_size: int = 256,
         chunk_overlap: int = 0,
         max_results=4,
     ):
         self._embeddings = HuggingFaceEmbeddings(
-            model_name=sentence_transformer.value.file
+            model_name=sentence_transformer.file
         )
-        self._score_threshold = sentence_transformer.value.score_threshold
+        self._score_threshold = sentence_transformer.score_threshold
         self._max_results = max_results
         self._splitter = CharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap
         )
         self._db = FAISS.from_texts(["dummy"], self._embeddings)
-        # if os.path.isdir("faiss_index"):
-        #     self._db = FAISS.load_local("faiss_index", self._embeddings)
-        # else:
-        #     db = FAISS.from_texts(["dummy"], self._embeddings)
-        #     db.save_local("faiss_index")
-        #     self._db = db
-
 
     @property
     def embeddings(self) -> Optional[Embeddings]:
