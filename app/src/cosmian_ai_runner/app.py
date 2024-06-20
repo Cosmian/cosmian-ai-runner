@@ -8,16 +8,6 @@ import torch
 from asgiref.wsgi import WsgiToAsgi
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
-from langchain.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
-from langchain_huggingface import HuggingFacePipeline
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    pipeline,
-)
 
 from .auth import check_token
 from .config import AppConfig
@@ -26,7 +16,7 @@ from .llm_chain import ModelValue, RagLLMChain
 from .rag import Rag
 from .summarizer import Summarizer
 from .translator import Translator
-from .vector_db import STValue, VectorDB
+from .vector_db import STValue
 
 torch.set_num_threads(os.cpu_count() or 1)
 

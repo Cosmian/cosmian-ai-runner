@@ -1,16 +1,9 @@
 # Follows https://python.langchain.com/docs/integrations/llms/huggingface_pipelines for the Huggingface pipeline with
 # LangChain
-import time
 from typing import Any, Optional
 
-from langchain_core.documents import Document
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import (
-    RunnableConfig,
-    RunnablePassthrough,
-    RunnableSerializable,
-)
-from langchain_core.runnables.utils import Input, Output
+from langchain_core.runnables import RunnableConfig, RunnableSerializable
+from langchain_core.runnables.utils import Output
 
 from .llm_chain import ModelValue, RagLLMChain
 from .vector_db import STValue, VectorDB

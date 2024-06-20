@@ -1,6 +1,4 @@
 import os
-import time
-from enum import Enum
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Type
 
 from langchain.text_splitter import CharacterTextSplitter, TextSplitter
@@ -104,6 +102,7 @@ class VectorDB(VectorStore):
 
     @classmethod
     def from_texts(
+        self,
         cls: Type[VST],
         texts: List[str],
         embedding: Embeddings,
@@ -114,7 +113,7 @@ class VectorDB(VectorStore):
         Create a VectorStore from a list of texts.
         Override the from_texts method to create a VectorStore from a list of texts.
         """
-        return db.from_texts(texts, embedding, metadatas, **kwargs)
+        return self._db.from_texts(texts, embedding, metadatas, **kwargs)
 
     def _select_relevance_score_fn(self) -> Callable[[float], float]:
         """
