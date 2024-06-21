@@ -99,3 +99,48 @@ We recommend to use `facebook/nllb-200-distilled-600M` (600M parameters).
   }
 }
 ```
+
+## API Endpoints
+
+### Summarize text
+
+- Endpoint: `/summarize`
+- Method: **POST**
+- Description: get the summary of a given text, using the configured model
+- Request:
+  - Headers: 'Content-Type: multipart/form-data'
+  - Body: `doc` - text to summarize, using model configured on summary config section
+- Response:
+```json
+  {
+    "summary": "summarized text..."
+  }
+```
+- Example:
+```
+curl 'http://0.0.0.0:5000/summarize' \
+--form 'doc="Il était une fois, dans un royaume couvert de vert émeraude et voilé dans les secrets murmurants des arbres anciens, vivait une princesse nommée Elara.."'
+```
+
+### Translate text
+
+- Endpoint: `/translate`
+- Method: **POST**
+- Description: get the translation of a given text, using model configured on translation config section
+- Request:
+  - Headers: 'Content-Type: multipart/form-data'
+  - Body:
+    `doc` - text to translate
+    `src_lang` - source language
+    `tgt_lang` - targeted language
+- Response:
+```json
+  {
+    "translation": "translated text..."
+  }
+```
+- Example:
+```
+curl 'http://0.0.0.0:5000/translate' \
+--form 'doc="Il était une fois, dans un royaume couvert de vert émeraude et voilé dans les secrets murmurants des arbres anciens, vivait une princesse nommée Elara.."' --form 'src_lang=fr'  --form 'tgt_lang=en'
+```
