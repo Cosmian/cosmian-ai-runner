@@ -124,10 +124,10 @@ class RagLLMChain(LLMChain):
         """
         Override on LLMChain.invoke() to add a confidence score
         """
+        average_score: float | None = None
         if "context" in input_args:
             documents: list[Document] = input_args["context"]
             text = " ".join([doc.page_content for doc in documents])
-            average_score: float | None = None
             has_scores = len(documents) > 0 and all(
                 doc.metadata.get("score") is not None for doc in documents
             )
@@ -139,14 +139,13 @@ class RagLLMChain(LLMChain):
                     average_score = int(average_score * 100)
                 elif average_score < -1:
                     average_score = int((average_score + 10) * 10)
+            elif len(documents) == 0:
+                average_score = 0
         elif "text" in input_args:
             text = input_args["text"]
         else:
             raise Exception("Missing text argument.")
-        # start_time = time.perf_counter()
         output = super().invoke({"text": text}, config, **kwargs)
-        # output = super().invoke(input_args, config, **kwargs)
-        # end_time = time.perf_counter()
-        # output['llm_time'] = end_time - start_time
-        # output['score'] = average_score
+        if average_score is not None:
+            output["score"] = average_score
         return output
