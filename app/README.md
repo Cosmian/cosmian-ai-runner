@@ -4,10 +4,13 @@ API to run a language model in a confidential VM
 
 ## Install dependencies
 
+## CPU
+
 By default all dependencies will be installed with the app.
 If you don't need CUDA support, you can save space by installing PyTorch for CPU only:
 
 ```sh
+cp requirements.cpu.txt requirements.txt
 pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 ```
 
@@ -15,6 +18,15 @@ To use Intel AVX/AMX extensions:
 
 ```sh
 pip install intel-extension-for-pytorch
+```
+
+### GPU Apple Silicon (Metal)
+
+To use the Apple Silicon Metal GPUs, install the following requirements: [https://github.com/context-labs/mactop]
+
+```shell
+cp requirements.metal.txt requirements.txt
+CT_METAL=1  pip install -r requirements.txt
 ```
 
 ## Build and install the app
