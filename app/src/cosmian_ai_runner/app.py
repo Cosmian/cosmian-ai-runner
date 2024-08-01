@@ -37,14 +37,15 @@ translator = Translator(**app_config["translation"])
 
 model_values = {}
 data_list = AppConfig.get_models_config()
-for item in data_list:
-    model_id = item.get("model_id")
-    file = item.get("file")
-    prompt = item.get("prompt")
-    task = item.get("task")
-    kwargs = item.get("kwargs")
-    model_value = ModelValue(model_id, file, prompt, task, kwargs)
-    model_values[model_id] = model_value
+if len(data_list) > 0:
+    for item in data_list:
+        model_id = item.get("model_id")
+        file = item.get("file")
+        prompt = item.get("prompt")
+        task = item.get("task")
+        kwargs = item.get("kwargs")
+        model_value = ModelValue(model_id, file, prompt, task, kwargs)
+        model_values[model_id] = model_value
 
 element = AppConfig.get_sentence_transformer_config()
 if element:
