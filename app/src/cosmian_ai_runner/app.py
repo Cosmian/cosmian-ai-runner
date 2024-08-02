@@ -41,7 +41,7 @@ translator = Translator(**APP_CONFIG["translation"])
 
 model_values = {}
 data_list = AppConfig.get_models_config()
-if len(data_list) > 0:
+if data_list is not None and len(data_list) > 0:
     for item in data_list:
         model_id = item.get("model_id")
         file = item.get("file")
