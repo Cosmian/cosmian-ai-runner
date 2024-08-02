@@ -1,3 +1,8 @@
+"""
+This module provides functionality for managing and retrieving documents
+using vector stores and embeddings. It includes classes and methods to
+load, split, and search documents with embeddings using Hugging Face models.
+"""
 import os
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Type
 
@@ -14,6 +19,12 @@ os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 
 class STValue:
+    """
+    A class to hold sentence transformer information and configuration.
+    Attributes:
+        file (str): The file path of the sentence transformer model.
+        score_threshold (Any): The score threshold for filtering results.
+    """
     def __init__(self, file: str, score_threshold: Any = None):
         self.file = file
         self.score_threshold = score_threshold
@@ -42,6 +53,15 @@ class FilteredRetriever(VectorStoreRetriever):
 
 
 class VectorDB(VectorStore):
+    """
+    A class to manage a vector store with embeddings and text splitting.
+    Attributes:
+        _embeddings (Embeddings): The embeddings used for the vector store.
+        _splitter (TextSplitter): The text splitter used to split documents.
+        _db (VectorStore): The underlying vector store.
+        _score_threshold (Any): The score threshold for filtering results.
+        _max_results (int): The maximum number of results to return.
+    """
     _embeddings: Embeddings
     _splitter: TextSplitter
     _db: VectorStore
@@ -75,10 +95,12 @@ class VectorDB(VectorStore):
 
     @property
     def threshold(self) -> float:
+        """Access the score threshold."""
         return self._score_threshold
 
     @property
     def max_results(self) -> int:
+        """Access the maximum number of results to return."""
         return self._max_results
 
     def add_texts(
@@ -144,12 +166,16 @@ class VectorDB(VectorStore):
         )
 
     def insert(self, document_path: str):
+        """Insert a document into the vector store."""
         document = __load_document__(document_path)
         chunks = self._splitter.split_documents([document])
         self._db.add_documents(chunks)
 
 
 def __load_document__(path: str) -> Document:
+    """
+    Load document to the vector DB
+    """
     if path.endswith(".epub"):
         return load_epub(path)
     raise ValueError(f"Unsupported file type: {path}")

@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""
+This module defines the Translator class for translating text using a Hugging Face model.
+"""
 from typing import Dict, List
 
 import torch
@@ -51,6 +54,20 @@ LANGUAGE_CODES = {
 
 
 class Translator(ModelPipeline):
+    """
+    A class for translating text using a specified Hugging Face model.
+    Attributes:
+        model_name (str): The name of the model to be used for translation.
+        generation_config (Dict): A dictionary of configuration parameters for text generation.
+        lang_to_code (Dict): A dictionary mapping language codes to the corresponding language format.
+    Methods:
+        encode(text: str, src_lang: str, tgt_lang: str) -> Dict[str, torch.Tensor]:
+            Preprocess the input text and encode it into tokens for the source and target languages.
+        forward(inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+            Generate translation tokens from the input tokens.
+        decode(outputs: torch.Tensor) -> str:
+            Decode the translation tokens into a string.
+    """
     def __init__(self, model_name: str, generation_config: Dict = {}):
         self.generation_config = generation_config
         self.lang_to_code = LANGUAGE_CODES
@@ -90,6 +107,15 @@ class Translator(ModelPipeline):
 
 
 def find_separator_index(input_tokens, sep_token, start_index):
+    """
+    Find the index of the separator token closest to the specified start index.
+    Args:
+        input_tokens (List[int]): The list of input tokens.
+        sep_token (int): The separator token ID.
+        start_index (int): The start index for searching the separator token.
+    Returns:
+        int: The index of the separator token or the start index if not found.
+    """
     split_index = start_index
     while input_tokens[split_index] != sep_token:
         split_index -= 1
@@ -99,6 +125,16 @@ def find_separator_index(input_tokens, sep_token, start_index):
 
 
 def end_pad_tokens(input_tokens, length, pad_token, eos_token=None):
+    """
+    Pad the input tokens to the specified length, optionally adding an EOS token.
+    Args:
+        input_tokens (List[int]): The list of input tokens.
+        length (int): The desired length of the padded tokens.
+        pad_token (int): The pad token ID.
+        eos_token (int, optional): The EOS token ID. Defaults to None.
+    Returns:
+        List[int]: The padded list of tokens.
+    """
     if eos_token:
         input_tokens.append(eos_token)
     input_tokens.extend([pad_token] * (length - len(input_tokens)))

@@ -1,11 +1,23 @@
+"""
+This module provides functionality for loading and managing language models
+using Hugging Face and Langchain libraries. It includes classes and functions
+to load models with various configurations and a custom implementation of
+LLMChain to add additional functionality such as scoring.
+"""
 import os
 from typing import Any, Dict, Optional
 
 import torch
+from accelerate import Accelerator
 from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain_community.llms import CTransformers
 from langchain_core.documents import Document
 from langchain_core.language_models import BaseLLM
 from langchain_core.runnables import RunnableConfig
+from langchain_huggingface import HuggingFacePipeline
+from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
+                          AutoTokenizer, pipeline)
 
 from .detect import is_gpu_available
 
@@ -13,6 +25,16 @@ os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
 
 class ModelValue:
+    """
+    A class to hold model information and configuration.
+
+    Attributes:
+        model_id (str): The model ID.
+        file (Any): The file associated with the model.
+        prompt (Any): The prompt template for the model.
+        task (str): The task type (e.g., text-generation).
+        kwargs (Any): Additional keyword arguments for model configuration.
+    """
     def __init__(self, model_id: str, file: Any, prompt: Any, task: str, kwargs: Any):
         self.model_id = model_id
         self.file = file
@@ -24,17 +46,11 @@ class ModelValue:
 def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
     """
     Load a model using HuggingFace pipeline
-    :param model_id:
+    :param model_id: model ID
+    :param task: hugging face task for the associated model
+    :param kwargs: parameters for model configuration
     :return: the model as a Langchain BaseLLM
     """
-    from langchain_huggingface import HuggingFacePipeline
-    from transformers import (
-        AutoModelForCausalLM,
-        AutoModelForSeq2SeqLM,
-        AutoTokenizer,
-        pipeline,
-    )
-
     hf_token = os.environ.get("HF_TOKEN")
     tokenizer = AutoTokenizer.from_pretrained(
         model_id, token=hf_token, model_max_length=512
@@ -78,14 +94,9 @@ def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
     :param model_file: the model file to use
     :return: the model as a Langchain BaseLLM
     """
-
-    from langchain_community.llms import CTransformers
-
     try:
         base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
         if is_gpu_available:
-            from accelerate import Accelerator
-
             accelerator = Accelerator()
             base_llm, config = accelerator.prepare(base_llm, config)
         return base_llm
@@ -93,7 +104,14 @@ def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
         print("Error", e)
 
 
-class RagLLMChain(LLMChain):
+class LLM(LLMChain):
+    """
+    A class that extends LLMChain to add additional functionality.
+    This class loads a model based on the provided ModelValue configuration and
+    overrides the invoke method to add a confidence score for RAG (Retrieval-Augmented Generation).
+    Attributes:
+        model (ModelValue): The model configuration and parameters.
+    """
     def __init__(self, model: ModelValue):
         model_id = model.model_id
         model_file = model.file
@@ -109,10 +127,8 @@ class RagLLMChain(LLMChain):
             )
         else:
             base_llm = __load_hf_model__(model_id=model_id, task=task, kwargs=kwargs)
-        from langchain.prompts import PromptTemplate
 
-        template = initial_prompt
-        prompt = PromptTemplate.from_template(template)
+        prompt = PromptTemplate.from_template(initial_prompt)
         super().__init__(llm=base_llm, prompt=prompt)
 
     def invoke(
@@ -122,7 +138,7 @@ class RagLLMChain(LLMChain):
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
-        Override on LLMChain.invoke() to add a confidence score
+        Override on LLMChain.invoke() to add a confidence score for RAG
         """
         average_score: float | None = None
         if "context" in input_args:
@@ -144,7 +160,7 @@ class RagLLMChain(LLMChain):
         elif "text" in input_args:
             text = input_args["text"]
         else:
-            raise Exception("Missing text argument.")
+            raise ValueError("Missing text argument.")
         output = super().invoke({"text": text}, config, **kwargs)
         if average_score is not None:
             output["score"] = average_score

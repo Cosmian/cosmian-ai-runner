@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+"""Main function"""
 import argparse
 import asyncio
 
@@ -9,6 +10,9 @@ from .app import app_asgi
 
 
 def main():
+    """
+    Main function to parse command-line arguments and start the Hypercorn server.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-p", "--port", type=int, default=5000, help="The listening port"

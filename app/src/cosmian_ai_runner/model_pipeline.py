@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
-# Based on [Transformer Tools](https://github.com/huggingface/transformers/tree/main/src/transformers/tools)
+"""
+This module provides a base class for creating model pipelines using the Hugging Face
+Transformers library. It defines an abstract base class for encoding input, running
+the model, and decoding the output.
+"""
+
+# Based on [Transformer Tools](
+# https://github.com/huggingface/transformers/tree/main/src/transformers/tools)
 
 from abc import ABC, abstractmethod
 from typing import Any
@@ -10,6 +17,13 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 
 class ModelPipeline(ABC):
+    """
+    Abstract base class for a model pipeline using Hugging Face Transformers.
+
+    This class provides a template for encoding input text, running a model
+    forward pass, and decoding the output. It supports lazy initialization of the
+    model and tokenizer to save memory, and automatically uses GPU if available.
+    """
     model_class = AutoModelForSeq2SeqLM
     tokenizer_class = AutoTokenizer
     # Use GPU if available
@@ -32,6 +46,11 @@ class ModelPipeline(ABC):
 
     @property
     def model(self):
+        """
+        Lazy initialization of the model. Loads the model if it is not already loaded.
+        Returns:
+            model: The model instance.
+        """
         if self._model is None:
             self._model = self.model_class.from_pretrained(self.model_name).to(
                 self.device
@@ -40,6 +59,11 @@ class ModelPipeline(ABC):
 
     @property
     def tokenizer(self):
+        """
+        Lazy initialization of the tokenizer. Loads the tokenizer if it is not already loaded.
+        Returns:
+            tokenizer: The tokenizer instance.
+        """
         if self._tokenizer is None:
             self._tokenizer = self.tokenizer_class.from_pretrained(self.model_name)
         return self._tokenizer

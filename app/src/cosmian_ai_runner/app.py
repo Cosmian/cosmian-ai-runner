@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+"""
+This module defines the Flask web application for text summarization, translation,
+retrieval-augmented generation (RAG), and model predictions using Hugging Face models.
+"""
 import os
 import tempfile
 from http import HTTPStatus
@@ -12,7 +16,7 @@ from flask_cors import CORS
 from .auth import check_token
 from .config import AppConfig
 from .detect import is_gpu_available
-from .llm_chain import ModelValue, RagLLMChain
+from .llm_chain import LLM, ModelValue
 from .rag import Rag
 from .summarizer import Summarizer
 from .translator import Translator
@@ -27,13 +31,13 @@ cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 config_path = os.getenv("CONFIG_PATH", "config.json")
 with open(config_path) as f:
-    app_config = AppConfig.load(f)
+    APP_CONFIG = AppConfig.load(f)
 
 summarizer_by_lang: Dict[str, Summarizer] = {
     lang: Summarizer(**model_config)
-    for lang, model_config in app_config["summary"].items()
+    for lang, model_config in APP_CONFIG["summary"].items()
 }
-translator = Translator(**app_config["translation"])
+translator = Translator(**APP_CONFIG["translation"])
 
 model_values = {}
 data_list = AppConfig.get_models_config()
@@ -55,10 +59,10 @@ if element:
 
     print(f"Using sentence transformer: {sentence_transformer.file}")
 
-    rag = Rag(sentence_transformer=sentence_transformer)
+    RAG = Rag(sentence_transformer=sentence_transformer)
     print("RAG created.")
 else:
-    rag = None
+    RAG = None
     print("No sentence tranformer configured, RAG is not created.")
 
 # sources = [
@@ -68,13 +72,18 @@ else:
 # ]
 # for source in sources:
 #     print(f"Loading {source}...")
-#     rag.add_document(source)
+#     RAG.add_document(source)
 # print("RAG populated.")
 
 
 @app.post("/summarize")
 @check_token()
 async def post_summarize():
+    """
+    Summarize text.
+    Expects 'doc' and optionally 'src_lang' in form data.
+    Returns a JSON response with the summary.
+    """
     if "doc" not in request.form:
         return ("Error: Missing file content", 400)
 
@@ -97,6 +106,11 @@ async def post_summarize():
 @app.post("/translate")
 @check_token()
 async def post_translate():
+    """
+    Translate text.
+    Expects 'doc', 'src_lang', and 'tgt_lang' in form data.
+    Returns a JSON response with the translation.
+    """
     if "doc" not in request.form:
         return ("Error: Missing file content", 400)
     if "src_lang" not in request.form:
@@ -129,7 +143,11 @@ def health_check():
 @app.post("/predict")
 @check_token()
 async def make_predictionl():
-    """Make a prediction using selected model."""
+    """
+    Make a prediction using the selected model.
+    Expects 'text' and 'model' in form data.
+    Returns a JSON response with the model's prediction.
+    """
     if "text" not in request.form:
         return ("Error: Missing text content", 400)
     if "model" not in request.form:
@@ -147,10 +165,12 @@ async def make_predictionl():
             model = model_values[model_name]
         except KeyError as e:
             return (f"Error model not found: {e}", 404)
+    else:
+        return Exception("Error model not found", 404)
 
     print(f"Using LLM: {model.model_id}")
     try:
-        llm = RagLLMChain(model=model)
+        llm = LLM(model=model)
         print("LLM created.")
         response = llm.invoke({"text": text})
         return jsonify(
@@ -165,7 +185,10 @@ async def make_predictionl():
 @app.get("/models")
 @check_token()
 async def list_models():
-    """List all the configured models."""
+    """
+    List all the configured models.
+    Returns a JSON response with the list of models.
+    """
     return jsonify(
         {
             "models": data_list,
@@ -176,10 +199,17 @@ async def list_models():
 @app.post("/rag")
 @check_token()
 async def build_rag():
-    if rag is None:
+    """
+    Make a prediction using the loaded RAG.
+    Expects 'text' and 'model' in form data.
+    Returns a JSON response with the RAG prediction.
+    """
+    if RAG is None:
         return ("RAG is not created - fobidden request", 404)
     if "text" not in request.form:
         return ("Error: Missing text content", 400)
+    if "model" not in request.form:
+        return ("Error: Missing selected model", 400)
 
     query = request.form["text"]
     model_name = request.form["model"]
@@ -193,10 +223,12 @@ async def build_rag():
             model = model_values[model_name]
         except KeyError as e:
             return (f"Error model not found: {e}", 404)
+    else:
+        return Exception("Error model not found", 404)
 
     print(f"Using LLM: {model.model_id}")
     try:
-        response = rag.invoke(model=model, query=query)
+        response = RAG.invoke(model=model, query=query)
         return jsonify(
             {
                 "response": response,
@@ -209,18 +241,22 @@ async def build_rag():
 @app.post("/add_document")
 @check_token()
 async def add_doc():
-    if rag is None:
+    """
+    Load a document into the vector database.
+    Expects a file with '.epub' extension in form data.
+    Returns a success message or error.
+    """
+    if RAG is None:
         return ("RAG is not created - fobidden request", 404)
     if not os.path.exists("data"):
         os.makedirs("data")
-
     if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"Error": "No file part"}), 400
 
     file = request.files["file"]
 
     if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        return jsonify({"Error": "No selected file"}), 400
 
     if file and file.filename.endswith(".epub"):
         file_ext = os.path.splitext(file.filename)[1]
@@ -231,11 +267,11 @@ async def add_doc():
             file.save(temp_file_name)
 
         try:
-            rag.add_document(temp_file_name)
+            RAG.add_document(temp_file_name)
             return ("File successfully processed", 200)
         except Exception as e:
             return (f"Error adding file: {e}", 400)
         finally:
             os.remove(temp_file_name)
     else:
-        return ("Invalid file extension - must be epub.", 400)
+        return ({"Error": "Invalid file extension - must be epub."}, 400)
