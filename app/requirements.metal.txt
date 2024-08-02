@@ -19,8 +19,11 @@ nltk==3.8.1
 numpy==1.26.4
 pandoc==2.3
 pypandoc==1.13
-sentence-transformers==2.3.1
+sentence-transformers==2.6.0
 transformers==4.41.2
 unstructured==0.12.4
 wheel==0.42
 protobuf==5.27.1
+Flask-Cors~=4.0.0
+Flask[async]~=3.0.2
+PyJWT~=2.8.0
