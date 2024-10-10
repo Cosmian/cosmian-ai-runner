@@ -22,6 +22,7 @@ class Summarizer(ModelPipeline):
         decode(output_tokens: torch.Tensor) -> str:
             Decode the summary tokens into a string.
     """
+
     def __init__(
         self,
         model_name: str,

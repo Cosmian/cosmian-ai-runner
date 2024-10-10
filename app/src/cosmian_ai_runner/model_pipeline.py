@@ -24,6 +24,7 @@ class ModelPipeline(ABC):
     forward pass, and decoding the output. It supports lazy initialization of the
     model and tokenizer to save memory, and automatically uses GPU if available.
     """
+
     model_class = AutoModelForSeq2SeqLM
     tokenizer_class = AutoTokenizer
     # Use GPU if available
@@ -65,7 +66,9 @@ class ModelPipeline(ABC):
             tokenizer: The tokenizer instance.
         """
         if self._tokenizer is None:
-            self._tokenizer = self.tokenizer_class.from_pretrained(self.model_name, model_max_length=512)
+            self._tokenizer = self.tokenizer_class.from_pretrained(
+                self.model_name, model_max_length=512
+            )
         return self._tokenizer
 
     def __call__(self, *args, **kwargs) -> str:

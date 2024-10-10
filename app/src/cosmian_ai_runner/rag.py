@@ -2,6 +2,7 @@
 This module provides the Rag class for retrieval-augmented generation (RAG) using
 vector stores and Hugging Face models with LangChain.
 """
+
 from typing import Any, Optional
 
 from langchain_core.runnables import RunnableConfig, RunnableSerializable
@@ -17,8 +18,10 @@ class Rag:
     and language models.
     Attributes:
         db (VectorDB): The vector database for storing and retrieving documents.
-        rag_chain (RunnableSerializable[Any, dict[str, Any]]): The RAG chain for generating responses.
+        rag_chain (RunnableSerializable[Any, dict[str, Any]]): The RAG chain for
+        generating responses.
     """
+
     db: VectorDB
     rag_chain: RunnableSerializable[Any, dict[str, Any]]
 
@@ -44,13 +47,13 @@ class Rag:
             max_results=max_results,
         )
 
-    def add_document(self, document_path: str):
+    def add_document(self, document_path: str, reference: str):
         """
         Add a document to the vector database.
         Args:
             document_path (str): The path to the document to add.
         """
-        self.db.insert(document_path)
+        self.db.insert(document_path, reference)
 
     def invoke(
         self, model: ModelValue, query: str, config: Optional[RunnableConfig] = None
@@ -70,3 +73,11 @@ class Rag:
             "context": self.db.as_retriever(),
         } | llm_chain
         return rag_chain.invoke(query, config)
+
+    def delete_reference(self, reference: str):
+        """
+        Delete a referenceto the vector database.
+        Args:
+            reference (str): The reference to delete.
+        """
+        self.db.delete_reference(reference)
