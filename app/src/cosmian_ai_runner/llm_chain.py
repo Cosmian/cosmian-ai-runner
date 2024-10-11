@@ -4,6 +4,7 @@ using Hugging Face and Langchain libraries. It includes classes and functions
 to load models with various configurations and a custom implementation of
 LLMChain to add additional functionality such as scoring.
 """
+
 import os
 from typing import Any, Dict, Optional
 
@@ -16,8 +17,12 @@ from langchain_core.documents import Document
 from langchain_core.language_models import BaseLLM
 from langchain_core.runnables import RunnableConfig
 from langchain_huggingface import HuggingFacePipeline
-from transformers import (AutoModelForCausalLM, AutoModelForSeq2SeqLM,
-                          AutoTokenizer, pipeline)
+from transformers import (
+    AutoModelForCausalLM,
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    pipeline,
+)
 
 from .detect import is_gpu_available
 
@@ -35,6 +40,7 @@ class ModelValue:
         task (str): The task type (e.g., text-generation).
         kwargs (Any): Additional keyword arguments for model configuration.
     """
+
     def __init__(self, model_id: str, file: Any, prompt: Any, task: str, kwargs: Any):
         self.model_id = model_id
         self.file = file
@@ -81,7 +87,6 @@ def __load_hf_model__(model_id: str, task: str, kwargs) -> BaseLLM:
         )
     else:
         raise ValueError(f"Got invalid task {task}, ")
-    # model.to(device)
     pipe = pipeline(task, model=model, tokenizer=tokenizer, **kwargs)
     base_llm = HuggingFacePipeline(pipeline=pipe)
     return base_llm
@@ -96,12 +101,12 @@ def __load_hf_gguf_model__(model_id: str, model_file: str, config) -> BaseLLM:
     """
     try:
         base_llm = CTransformers(model=model_id, model_file=model_file, config=config)
-        if is_gpu_available:
+        if is_gpu_available():
             accelerator = Accelerator()
             base_llm, config = accelerator.prepare(base_llm, config)
         return base_llm
     except Exception as e:
-        print("Error", e)
+        raise RuntimeError(f"Error: {e}") from e
 
 
 class LLM(LLMChain):
@@ -112,6 +117,7 @@ class LLM(LLMChain):
     Attributes:
         model (ModelValue): The model configuration and parameters.
     """
+
     def __init__(self, model: ModelValue):
         model_id = model.model_id
         model_file = model.file
@@ -144,6 +150,15 @@ class LLM(LLMChain):
         if "context" in input_args:
             documents: list[Document] = input_args["context"]
             text = " ".join([doc.page_content for doc in documents])
+            context = [
+                {
+                    "content": doc.page_content,
+                    "metadata": {
+                        k: v for k, v in doc.metadata.items() if k != "source"
+                    },
+                }
+                for doc in documents
+            ]
             has_scores = len(documents) > 0 and all(
                 doc.metadata.get("score") is not None for doc in documents
             )
@@ -157,11 +172,14 @@ class LLM(LLMChain):
                     average_score = int((average_score + 10) * 10)
             elif len(documents) == 0:
                 average_score = 0
+            output = super().invoke(
+                {"text": text, "context": context}, config, **kwargs
+            )
         elif "text" in input_args:
             text = input_args["text"]
+            output = super().invoke({"text": text}, config, **kwargs)
         else:
             raise ValueError("Missing text argument.")
-        output = super().invoke({"text": text}, config, **kwargs)
         if average_score is not None:
             output["score"] = average_score
         return output

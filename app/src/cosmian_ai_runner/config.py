@@ -15,6 +15,7 @@ class AppConfig:
     specific sections of the configuration such as authentication, models, and
     sentence transformer configurations.
     """
+
     _config: Optional[Dict] = None
 
     @classmethod
@@ -57,25 +58,37 @@ class AppConfig:
         return None
 
     @classmethod
-    def get_models_config(cls) -> Optional[list]:
+    def get_summary_config(cls) -> Dict:
+        """
+        Get the summary configuration.
+        Returns:
+            Optional[Dict]: The summary configuration if available, otherwise None.
+        """
+        config = cls.get()
+        if "summary" in config:
+            return config["summary"]
+        raise AttributeError("Missing summary config")
+
+    @classmethod
+    def get_translation_config(cls) -> Dict:
+        """
+        Get the translation configuration.
+        Returns:
+            Optional[Dict]: The translation configuration if available, otherwise None.
+        """
+        config = cls.get()
+        if "translation" in config:
+            return config["translation"]
+        raise AttributeError("Missing translation config")
+
+    @classmethod
+    def get_databases_config(cls) -> Dict:
         """
         Get the models configuration.
         Returns:
             Optional[list]: The models configuration if available, otherwise None.
         """
         config = cls.get()
-        if "models" in config:
-            return config["models"]
-        return None
-
-    @classmethod
-    def get_sentence_transformer_config(cls) -> Optional[list]:
-        """
-        Get the sentence transformer configuration.
-        Returns:
-            Optional[list]: The sentence transformer configuration if available, otherwise None.
-        """
-        config = cls.get()
-        if "sentence_transformer" in config:
-            return config["sentence_transformer"]
-        return None
+        if "databases" in config:
+            return config["databases"]
+        raise AttributeError("Missing databases config")

@@ -68,6 +68,7 @@ class Translator(ModelPipeline):
         decode(outputs: torch.Tensor) -> str:
             Decode the translation tokens into a string.
     """
+
     def __init__(self, model_name: str, generation_config: Dict = {}):
         self.generation_config = generation_config
         self.lang_to_code = LANGUAGE_CODES

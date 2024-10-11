@@ -1,4 +1,5 @@
 """Util to check if gpu is available"""
+
 import torch
 
 

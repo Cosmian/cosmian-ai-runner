@@ -82,27 +82,54 @@ Information about the translation model to use and generation parameters.
 
 We recommend to use `facebook/nllb-200-distilled-600M` (600M parameters).
 
-### Models
+### Databases
 
-Models configuration defines available models for `/predict` and `/rag` routes.
+Databases configuration defines available models with associated sentence transformer for `/predict` route.
 
-For classic huggingface pipeline models, model configuration should be structured as follow:
+For classic huggingface pipeline models and associated sentence tranformer, databases configuration should be structured as follow:
 
 ```json
+    "databases": [
         {
-            "model_id": "facebook/bart-large-cnn",
-            "task": "summarization",
-            "prompt": "{text}",
-            "kwargs": {
-                "temperature": 0.1,
-                "do_sample": true,
-                "truncation": true,
-                "max_new_tokens": 200
+            "name": "Litterature",
+            "model": {
+                "model_id": "facebook/bart-large-cnn",
+                "task": "summarization",
+                "prompt": "{text}",
+                "kwargs": {
+                    "temperature": 0.1,
+                    "do_sample": true,
+                    "truncation": true,
+                    "max_new_tokens": 200
+                }
+            },
+            "sentence_transformer": {
+                "file": "sentence-transformers/all-MiniLM-L12-v2",
+                "score_threshold": 0.12
+            }
+        },
+                {
+            "name": "Science",
+            "model": {
+                "model_id": "facebook/bart-large-cnn",
+                "task": "summarization",
+                "prompt": "{text}",
+                "kwargs": {
+                    "temperature": 0.1,
+                    "do_sample": true,
+                    "truncation": true,
+                    "max_new_tokens": 200
+                }
+            },
+            "sentence_transformer": {
+                "file": "sentence-transformers/all-MiniLM-L12-v2",
+                "score_threshold": 0.12
             }
         }
+    ]
 ```
 
-For gguf models, model should be structured as follow (selected file, over different available quantizations must be precised):
+For gguf models, model section should be structured as follow (selected file, over different available quantizations must be precised):
 
 ```json
       {
@@ -119,21 +146,7 @@ For gguf models, model should be structured as follow (selected file, over diffe
       }
 ```
 
-### Sentence Transformer
-
-Sentence transformer configuration defines which setence transformer to use when creating RAG (on server launch).
-
-```json
-  {
-    "sentence_transformer":
-    {
-        "file": "sentence-transformers/all-MiniLM-L12-v2",
-        "score_threshold": 0.12
-    }
-  }
-  ```
-
-If no element is configured, RAG is not created and `/rag` routes will send an error when fetched.
+References can be added or deleted from a given database, adding chunks of text in the VectorDB of each associated RAG.
 
 ### Sample config file
 
@@ -161,7 +174,27 @@ If no element is configured, RAG is not created and `/rag` routes will send an e
     "generation_config": {
       "max_length": 200
     }
-  }
+  },
+  "databases": [
+    {
+      "name": "Litterature",
+      "model": {
+        "model_id": "facebook/bart-large-cnn",
+        "task": "summarization",
+        "prompt": "{text}",
+        "kwargs": {
+          "temperature": 0.1,
+          "do_sample": true,
+          "truncation": true,
+          "max_new_tokens": 200
+        }
+      },
+      "sentence_transformer": {
+        "file": "sentence-transformers/all-MiniLM-L12-v2",
+        "score_threshold": 0.12
+      }
+    }
+  ]
 }
 ```
 
@@ -199,75 +232,134 @@ curl 'http://0.0.0.0:5000/summarize' \
     `src_lang` - source language
     `tgt_lang` - targeted language
 - Response:
-```json
-  {
-    "translation": "translated text..."
-  }
-```
+  ```json
+    {
+      "translation": "translated text..."
+    }
+  ```
 - Example:
-```
-curl 'http://0.0.0.0:5000/translate' \
---form 'doc="Il était une fois, dans un royaume couvert de vert émeraude et voilé dans les secrets murmurants des arbres anciens, vivait une princesse nommée Elara.."' --form 'src_lang=fr'  --form 'tgt_lang=en'
-```
+  ```
+  curl 'http://0.0.0.0:5000/translate' \
+  --form 'doc="Il était une fois, dans un royaume couvert de vert émeraude et voilé dans les secrets murmurants des arbres anciens, vivait une princesse nommée Elara.."' --form 'src_lang=fr'  --form 'tgt_lang=en'
+  ```
 
 ### Predict
 
 - Endpoint: `/predict`
 - Method: **POST**
 - Description: get prediction from a model available in application configuration (using
-  HuggingFacePipeline, or a gguf model)
+  HuggingFacePipeline, or a gguf model) and the associated sentence transformer and created RAG (the sentence_transformer is used to create and infer vectors)
 - Request:
   - Headers: 'Content-Type: multipart/form-data'
   - Body:
     `text` - text to use for prediction
-    `model` - model_id to use for inference
-- Response:
-```json
-  {
-    "response": "generated text..."
-  }
-```
+    `database` - database to use for inference (model + RAG with indexed references)
 - Example:
-```
-curl 'http://0.0.0.0:5000/predict' \
---form 'text="What color is a banana?"' --form 'model="google/flan-t5-small"'
-```
+  ```
+  curl 'http://0.0.0.0:5000/predict' \
+  --form 'text="Who is Esmeralda?"' --form 'database="Litterature"'
+  ```
+- Response:
+  The response contains the generated text and its associated score, and the context : details about the 5 closest vectors
+  and their references used to build the generated response.
+  ```json
+    {
+      "response": {
+          "context": [
+              {
+                  "content": "content#1",
+                  "metadata": {
+                      "reference": "referenceA",
+                      "score": 0.5503686535412922
+                  }
+              },
+              {
+                  "content": "content#2",
+                  "metadata": {
+                      "reference": "referenceB",
+                      "score": 0.5342674615920695
+                  }
+              },
+              {
+                  "content": "content#3",
+                  "metadata": {
+                      "reference": "referenceA",
+                      "score": 0.44756376562558
+                  }
+              },
+              {
+                  "content": "content#4",
+                  "metadata": {
+                      "reference": "referenceA",
+                      "score": 0.44548622102193247
+                  }
+              },
+              {
+                  "content": "content#5",
+                  "metadata": {
+                      "reference": "referenceB",
+                      "score": 0.3902549676845284
+                  }
+              }
+          ],
+          "score": 47,
+          "text": "generated answer..."
+      }
+    }
+  ```
 
-You can list available models from current configuration using:
-- Endpoint: `/models`
+You can list available databases and their uploaded references from current configuration using:
+- Endpoint: `/databases`
 - Method: **GET**
-
-###  RAG
-
-Those routes are available if a sentence_transformer has been provided in the configuration file.
-The sentence_transformer is used to create and infer vectors
-- Endpoint: `/rag`
-- Method: **POST**
-- Description: get prediction from a RAG, using a model available in application configuration
-- Request:
-  - Headers: 'Content-Type: multipart/form-data'
-  - Body:
-    `text` - text to use for rag request
-    `model` - model_id to use for inference after RAG step
-- Response:
-```json
+- Example:
+  ```
+  curl 'http://0.0.0.0:5000/databases'
+  ```
+- Reponse:
+  ```
   {
-    "response": "generated text..."
+      "databases": {
+          "Litterature": [
+              "NDame de Paris"
+          ],
+          "Science": []
+      }
   }
-```
-- Example:
-```
-curl 'http://0.0.0.0:5000/rag' \
---form 'text="Who is Esmeralda?"' --form 'model="facebook/bart-large-cnn"'
-```
+  ```
 
-You can add an `.epub` document to the vector DB of the current RAG, using:
-- Endpoint: `/add_document`
+###  Manage references
+
+You can add an `.epub` document to the vector DB of the given RAG associated to a database, using:
+- Endpoint: `/add_reference`
 - Method: **POST**
-- File sent on multipart
+- Request:
+  - File sent on multipart
+  - Body:
+    `database` - database to insert reference
+    `reference` - reference to insert
 - Example:
-```
-curl -F "file=@/path/data/Victor_Hugo_Notre-Dame_De_Paris_en.epub" http://0.0.0.0:5000/add_document
-```
+  ```
+  curl -F "file=@/path/data/Victor_Hugo_Notre-Dame_De_Paris_en.epub" http://0.0.0.0:5000/add_reference
+  ```
+- Response:
+  ```
+  File successfully processed
+  ```
 
 *So far, only epub files can be handled.*
+
+You can remove a reference to the vector DB of the given RAG associated to a database, using:
+- Endpoint: `/delete_reference`
+- Method: **DELETE**
+- Request:
+  - Body:
+    `database` - database to remove reference from
+    `reference` - reference to delete
+- Example:
+  ```
+  curl --form 'database="Litterature"' --form 'reference="NDame de Paris"'  http://0.0.0.0:5000/delete_reference
+  ```
+- Response:
+  ```
+  Reference successfully removed
+  ```

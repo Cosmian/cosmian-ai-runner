@@ -3,7 +3,6 @@ import unittest
 
 from cosmian_ai_runner.app import app
 
-
 class ApiTest(unittest.TestCase):
     def setUp(self):
         app.testing = True

@@ -65,6 +65,7 @@ def check_token():
     Returns:
         function: The decorated function with token verification.
     """
+
     def decorator(f):
         auth_config = AppConfig.get_auth_config()
         if not auth_config:
