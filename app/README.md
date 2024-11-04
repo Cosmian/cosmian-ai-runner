@@ -65,88 +65,6 @@ It should contain a list of the following fields per identity providers:
 
 - `client_id`: ID of the client calling this application set by the identity provider
 
-### Summary
-
-Information about the summarization models to use and generation parameters.
-
-Different models can be used depending on the language of the document to summarize.
-It is **mandatory** to have at least a `default` model entry.
-
-We recommend to use `facebook/bart-large-cnn` (400M parameters).
-You can specify a custom `generation_config`, you can see the default one for your model on HuggingFace: [generation_config.json](https://huggingface.co/facebook/bart-large-cnn/blob/main/generation_config.json).
-You can find more information about text generation [here](https://huggingface.co/blog/how-to-generate).
-
-### Translation
-
-Information about the translation model to use and generation parameters.
-
-We recommend to use `facebook/nllb-200-distilled-600M` (600M parameters).
-
-### Databases
-
-Databases configuration defines available models with associated sentence transformer for `/predict` route.
-
-For classic huggingface pipeline models and associated sentence tranformer, databases configuration should be structured as follow:
-
-```json
-    "databases": [
-        {
-            "name": "Litterature",
-            "model": {
-                "model_id": "facebook/bart-large-cnn",
-                "task": "summarization",
-                "prompt": "{text}",
-                "kwargs": {
-                    "temperature": 0.1,
-                    "do_sample": true,
-                    "truncation": true,
-                    "max_new_tokens": 200
-                }
-            },
-            "sentence_transformer": {
-                "file": "sentence-transformers/all-MiniLM-L12-v2",
-                "score_threshold": 0.12
-            }
-        },
-                {
-            "name": "Science",
-            "model": {
-                "model_id": "facebook/bart-large-cnn",
-                "task": "summarization",
-                "prompt": "{text}",
-                "kwargs": {
-                    "temperature": 0.1,
-                    "do_sample": true,
-                    "truncation": true,
-                    "max_new_tokens": 200
-                }
-            },
-            "sentence_transformer": {
-                "file": "sentence-transformers/all-MiniLM-L12-v2",
-                "score_threshold": 0.12
-            }
-        }
-    ]
-```
-
-For gguf models, model section should be structured as follow (selected file, over different available quantizations must be precised):
-
-```json
-      {
-          "model_id": "TheBloke/Spring-Dragon-GGUF",
-          "file": "spring-dragon.Q2_K.gguf",
-          "prompt": "",
-          "kwargs": {
-              "max_new_tokens": 256,
-              "temperature": 0.01,
-              "context_length": 4096,
-              "repetition_penalty": 1.1,
-              "gpu_layers": 0
-          }
-      }
-```
-
-References can be added or deleted from a given database, adding chunks of text in the VectorDB of each associated RAG.
 
 ### Sample config file
 
@@ -160,41 +78,6 @@ References can be added or deleted from a given database, adding chunks of text 
       }
     ]
   },
-  "summary": {
-    "default": {
-      "model_name": "facebook/bart-large-cnn",
-      "generation_config": {
-        "max_length": 140,
-        "min_length": 30
-      }
-    }
-  },
-  "translation": {
-    "model_name": "facebook/nllb-200-distilled-600M",
-    "generation_config": {
-      "max_length": 200
-    }
-  },
-  "databases": [
-    {
-      "name": "Litterature",
-      "model": {
-        "model_id": "facebook/bart-large-cnn",
-        "task": "summarization",
-        "prompt": "{text}",
-        "kwargs": {
-          "temperature": 0.1,
-          "do_sample": true,
-          "truncation": true,
-          "max_new_tokens": 200
-        }
-      },
-      "sentence_transformer": {
-        "file": "sentence-transformers/all-MiniLM-L12-v2",
-        "score_threshold": 0.12
-      }
-    }
-  ]
 }
 ```
 
@@ -243,99 +126,80 @@ curl 'http://0.0.0.0:5000/summarize' \
   --form 'doc="Il était une fois, dans un royaume couvert de vert émeraude et voilé dans les secrets murmurants des arbres anciens, vivait une princesse nommée Elara.."' --form 'src_lang=fr'  --form 'tgt_lang=en'
   ```
 
-### Predict
+### Predict using text as context
 
-- Endpoint: `/predict`
+- Endpoint: `/context_predict`
 - Method: **POST**
-- Description: get prediction from a model available in application configuration (using
-  HuggingFacePipeline, or a gguf model) and the associated sentence transformer and created RAG (the sentence_transformer is used to create and infer vectors)
+- Description: get prediction from a model using current text as a context
 - Request:
   - Headers: 'Content-Type: multipart/form-data'
   - Body:
-    `text` - text to use for prediction
-    `database` - database to use for inference (model + RAG with indexed references)
+    `context` - text to use as context for prediction
+    `query` - query to answer
 - Example:
   ```
-  curl 'http://0.0.0.0:5000/predict' \
-  --form 'text="Who is Esmeralda?"' --form 'database="Litterature"'
+  curl 'http://0.0.0.0:5000/context_predict' \
+  --form 'text="Who is Elara?"' --form 'context="Elara is a girl living in a forest..."'
   ```
 - Response:
-  The response contains the generated text and its associated score, and the context : details about the 5 closest vectors
-  and their references used to build the generated response.
+  The response contains the answer to the query, from given context.
   ```json
     {
-      "response": {
-          "context": [
-              {
-                  "content": "content#1",
-                  "metadata": {
-                      "reference": "referenceA",
-                      "score": 0.5503686535412922
-                  }
-              },
-              {
-                  "content": "content#2",
-                  "metadata": {
-                      "reference": "referenceB",
-                      "score": 0.5342674615920695
-                  }
-              },
-              {
-                  "content": "content#3",
-                  "metadata": {
-                      "reference": "referenceA",
-                      "score": 0.44756376562558
-                  }
-              },
-              {
-                  "content": "content#4",
-                  "metadata": {
-                      "reference": "referenceA",
-                      "score": 0.44548622102193247
-                  }
-              },
-              {
-                  "content": "content#5",
-                  "metadata": {
-                      "reference": "referenceB",
-                      "score": 0.3902549676845284
-                  }
-              }
-          ],
-          "score": 47,
-          "text": "generated answer..."
-      }
+      "response": ["Elara is the sovereign of the mystical forests of Eldoria"]
     }
   ```
 
-You can list available databases and their uploaded references from current configuration using:
-- Endpoint: `/databases`
+### Predict using RAG
+
+- Endpoint: `/rag_predict`
+- Method: **POST**
+- Description: get prediction from a model using RAG and configured documentary basis
+- Request:
+  - Headers: 'Content-Type: multipart/form-data'
+  - Body:
+    `db` - documentary basis to use for prediction
+    `query` - query to answer
+- Example:
+  ```
+  curl 'http://0.0.0.0:5000/rag_predict' \
+  --form 'text="Who is Esmeralda?"' --form 'db="litterature"'
+  ```
+- Response:
+  The response contains the answer to the query, from given context.
+  ```json
+    {
+      "response": ["a street dancer"]
+    }
+  ```
+
+You can list available documentary basis and their uploaded references from current configuration using:
+- Endpoint: `/documentary_basis`
 - Method: **GET**
 - Example:
   ```
-  curl 'http://0.0.0.0:5000/databases'
+  curl 'http://0.0.0.0:5000/documentary_basis'
   ```
 - Reponse:
   ```
   {
-      "databases": {
-          "Litterature": [
+      "documentary_basis": {
+          "litterature": [
               "NDame de Paris"
           ],
-          "Science": []
+          "science": []
       }
   }
   ```
 
 ###  Manage references
 
-You can add an `.epub` document to the vector DB of the given RAG associated to a database, using:
+You can add an `.epub` document, `.docx` document or a PDF to the vector DB of the given RAG associated to a database, using:
 - Endpoint: `/add_reference`
 - Method: **POST**
 - Request:
   - File sent on multipart
   - Body:
-    `database` - database to insert reference
+    `db` - database to insert reference
     `reference` - reference to insert
 - Example:
   ```
@@ -353,7 +217,7 @@ You can remove a reference to the vector DB of the given RAG associated to a dat
 - Method: **DELETE**
 - Request:
   - Body:
-    `database` - database to remove reference from
+    `db` - database to remove reference from
     `reference` - reference to delete
 - Example:
   ```

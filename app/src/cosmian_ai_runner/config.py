@@ -43,7 +43,6 @@ class AppConfig:
         """
         if cls._config:
             return cls._config
-        raise AttributeError("Missing or empty config")
 
     @classmethod
     def get_auth_config(cls) -> Optional[Dict]:
@@ -53,42 +52,6 @@ class AppConfig:
             Optional[Dict]: The authentication configuration if available, otherwise None.
         """
         config = cls.get()
-        if "auth" in config:
+        if config is not None and "auth" in config:
             return config["auth"]
         return None
-
-    @classmethod
-    def get_summary_config(cls) -> Dict:
-        """
-        Get the summary configuration.
-        Returns:
-            Optional[Dict]: The summary configuration if available, otherwise None.
-        """
-        config = cls.get()
-        if "summary" in config:
-            return config["summary"]
-        raise AttributeError("Missing summary config")
-
-    @classmethod
-    def get_translation_config(cls) -> Dict:
-        """
-        Get the translation configuration.
-        Returns:
-            Optional[Dict]: The translation configuration if available, otherwise None.
-        """
-        config = cls.get()
-        if "translation" in config:
-            return config["translation"]
-        raise AttributeError("Missing translation config")
-
-    @classmethod
-    def get_databases_config(cls) -> Dict:
-        """
-        Get the models configuration.
-        Returns:
-            Optional[list]: The models configuration if available, otherwise None.
-        """
-        config = cls.get()
-        if "databases" in config:
-            return config["databases"]
-        raise AttributeError("Missing databases config")

@@ -1,29 +1,26 @@
-# These are Metal GPU requirements
-# The requirements must be installed using :
-# CT_METAL=1 ./venv/bin/pip3 install -r requirements.txt
 torch==2.3.1
-torchvision==0.18.1
-torchaudio==2.3.1
+chroma-haystack==0.22.1
+datasets
+haystack-ai==2.6.1
 packaging
 wheel
 accelerate==0.27.2
-ctransformers==0.2.27
-faiss-cpu>=1.7.4
-#flash_attn==2.5.8 --global-option="--no-build-isolation"
-langchain==0.2.5
-langchain-community==0.2.5
-langchain-core==0.2.7
-langdetect==1.0.9
-langchain-huggingface==0.0.3
 nltk==3.8.1
 numpy==1.26.4
 pandoc==2.3
 pypandoc==1.13
-sentence-transformers==2.6.0
-transformers==4.41.2
 unstructured==0.12.4
 wheel==0.42
 protobuf==5.27.1
+sentence-transformers==3.2.0
 Flask-Cors~=4.0.0
 Flask[async]~=3.0.2
 PyJWT~=2.8.0
+wikipedia
+ebooklib
+trafilatura
+lxml_html_clean
+python-docx
+pypdf
+hypercorn
+sentencepiece

@@ -8,7 +8,6 @@ from hypercorn.config import Config
 
 from .app import app_asgi
 
-
 def main():
     """
     Main function to parse command-line arguments and start the Hypercorn server.
