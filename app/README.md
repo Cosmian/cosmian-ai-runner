@@ -4,30 +4,16 @@ API to run a language model in a confidential VM
 
 ## Install dependencies
 
-## CPU
-
 By default all dependencies will be installed with the app.
-If you don't need CUDA support, you can save space by installing PyTorch for CPU only:
-
 ```sh
-cp requirements.cpu.txt requirements.txt
-pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+pip install -r requirements.txt
 ```
 
-To use Intel AVX/AMX extensions:
+## Hardware optimization
 
-```sh
-pip install intel-extension-for-pytorch
-```
-
-### GPU Apple Silicon (Metal)
-
-To use the Apple Silicon Metal GPUs, install the following requirements: [https://github.com/context-labs/mactop]
-
-```shell
-cp requirements.metal.txt requirements.txt
-CT_METAL=1  pip install -r requirements.txt
-```
+Upon starting the app, the hardware configuration is automatically checked to ensure optimal performance.
+When running on Intel Xeon processors, the app will leverage the AMX (Advanced Matrix Extensions)
+to significantly boost performance, particularly for matrix-heavy operations often encountered in machine learning tasks.
 
 ## Build and install the app
 
@@ -139,13 +125,13 @@ curl 'http://0.0.0.0:5000/summarize' \
 - Example:
   ```
   curl 'http://0.0.0.0:5000/context_predict' \
-  --form 'text="Who is Elara?"' --form 'context="Elara is a girl living in a forest..."'
+  --form 'query="Who is Elara?"' --form 'context="Elara is a girl living in a forest..."'
   ```
 - Response:
   The response contains the answer to the query, from given context.
   ```json
     {
-      "response": ["Elara is the sovereign of the mystical forests of Eldoria"]
+      "result": ["Elara is the sovereign of the mystical forests of Eldoria"]
     }
   ```
 
@@ -162,13 +148,13 @@ curl 'http://0.0.0.0:5000/summarize' \
 - Example:
   ```
   curl 'http://0.0.0.0:5000/rag_predict' \
-  --form 'text="Who is Esmeralda?"' --form 'db="litterature"'
+  --form 'query="Who is Esmeralda?"' --form 'db="litterature"'
   ```
 - Response:
   The response contains the answer to the query, from given context.
   ```json
     {
-      "response": ["a street dancer"]
+      "result": ["a street dancer"]
     }
   ```
 
@@ -177,12 +163,12 @@ You can list available documentary basis and their uploaded references from curr
 - Method: **GET**
 - Example:
   ```
-  curl 'http://0.0.0.0:5000/documentary_basis'
+  curl 'http://0.0.0.0:5000/documentary_bases'
   ```
 - Reponse:
   ```
   {
-      "documentary_basis": {
+      "documentary_bases": {
           "litterature": [
               "NDame de Paris"
           ],
@@ -203,7 +189,7 @@ You can add an `.epub` document, `.docx` document or a PDF to the vector DB of t
     `reference` - reference to insert
 - Example:
   ```
-  curl -F "file=@/path/data/Victor_Hugo_Notre-Dame_De_Paris_en.epub" http://0.0.0.0:5000/add_reference
+  curl -F "file=@/data/doc.pdf" --form 'db="litterature"' --form 'reference="crypto"'  http://0.0.0.0:5000/add_reference
   ```
 - Response:
   ```
@@ -221,7 +207,7 @@ You can remove a reference to the vector DB of the given RAG associated to a dat
     `reference` - reference to delete
 - Example:
   ```
-  curl --form 'database="Litterature"' --form 'reference="NDame de Paris"'  http://0.0.0.0:5000/delete_reference
+  curl --form 'db="Litterature"' --form 'reference="NDame de Paris"'  http://0.0.0.0:5000/delete_reference
   ```
 - Response:
   ```

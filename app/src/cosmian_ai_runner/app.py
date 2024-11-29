@@ -7,33 +7,34 @@ import os
 import tempfile
 from http import HTTPStatus
 
+import subprocess
 import torch
 from asgiref.wsgi import WsgiToAsgi
+from contextlib import nullcontext
 from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
-from haystack import Pipeline
 from haystack.utils import Secret
 from haystack.components.generators import HuggingFaceLocalGenerator
-from haystack.components.builders import PromptBuilder
-from haystack.components.embedders import (
-    SentenceTransformersDocumentEmbedder,
-    SentenceTransformersTextEmbedder,
-)
 from haystack.components.converters import (
     HTMLToDocument,
     DOCXToDocument,
-    PyPDFToDocument
+    PyPDFToDocument,
 )
-# from fastrag.generators.openvino import OpenVINOGenerator
-
 from haystack_integrations.components.retrievers.chroma import ChromaEmbeddingRetriever
 from haystack_integrations.document_stores.chroma import ChromaDocumentStore
-
-
 from .auth import check_token
 from .config import AppConfig
-from .utils import load_document, load_epub_as_bytes, build_rag_pipeline, chunk_text
+from .utils import (
+    load_document,
+    load_epub_as_bytes,
+    build_rag_pipeline,
+    chunk_text,
+    build_summarize_pipeline,
+    build_context_predict_pipeline,
+    build_translate_pipeline,
+)
+
 torch.set_num_threads(os.cpu_count() or 1)
 
 app = Flask(__name__)
@@ -45,71 +46,76 @@ config_path = os.getenv("CONFIG_PATH", "config.json")
 with open(config_path, encoding="utf-8") as f:
     AppConfig.load(f)
 
-# Prepare elements for each documentary database
-template = """
-Given the following information, answer the question.
 
-Context:
-{% for document in documents %}
-    {{ document.content }}
-{% endfor %}
+# Determine the device
+def check_amx_support():
+    try:
+        # Check CPU flags for AMX
+        cpu_info = subprocess.check_output(
+            "grep -o 'amx' /proc/cpuinfo", shell=True
+        ).decode()
+        return "amx" in cpu_info
+    except Exception:
+        return False
 
-Question: {{question}}
-Answer:
-"""
-doc_embedder = SentenceTransformersDocumentEmbedder(
-    model="sentence-transformers/all-MiniLM-L12-v2"
-)
-doc_embedder.warm_up()
+
+if check_amx_support():
+    print("AMX is supported on this system.")
+else:
+    print("AMX is not supported on this system.")
+
+if torch.cuda.is_available():
+    print("Application is using GPU")
+    device = torch.device("cuda")  # Use GPU if available
+    autocast_context = torch.amp.autocast("cuda")
+elif torch.backends.cpu and check_amx_support():  # Check for Intel AMX
+    print("Application is using AMX")
+    device = torch.device("cpu")
+    autocast_context = torch.amp.autocast("cpu")
+elif torch.backends.mps.is_available():  # Check for Metal on macOS
+    print("Application is using MPS")
+    device = torch.device("mps")
+    autocast_context = None  # Metal backend does not support autocast
+else:
+    print("Application is using CPU")
+    device = torch.device("cpu")
+    autocast_context = None  # Default CPU without autocast
+context = autocast_context if autocast_context else nullcontext()
+
+
+# Build documentary database
 
 # Litterature basis
 document_store_litterature = ChromaDocumentStore(
     persist_path="rag_epub_doc_store_litterature"
 )
-text_embedder_litterature = SentenceTransformersTextEmbedder(
-    model="sentence-transformers/all-MiniLM-L6-v2"
-)
 retriever_litterature = ChromaEmbeddingRetriever(document_store_litterature)
-
-# openvino_compressed_model_path = "./model"
 generator_litterature = HuggingFaceLocalGenerator(
     model="google/flan-t5-large",
     task="text2text-generation",
     token=Secret.from_env_var("HF_API_TOKEN"),
+    generation_kwargs={
+        "max_new_tokens": 500,
+    },
 )
-# generator_litterature = OpenVINOGenerator(
-#     model="google/flan-t5-xl",
-#     compressed_model_dir=openvino_compressed_model_path,
-#     device_openvino="CPU",
-#     task="text-generation",
-#     generation_kwargs={
-#         "max_new_tokens": 100,
-#     }
-# )
 pipeline_litterature = build_rag_pipeline(
-    text_embedder_litterature,
     retriever_litterature,
-    template,
     generator_litterature,
 )
 
 # Science basis
-document_store_science = ChromaDocumentStore(
-    persist_path="rag_epub_doc_store_science"
-)
-text_embedder_science = SentenceTransformersTextEmbedder(
-    model="sentence-transformers/all-MiniLM-L6-v2"
-)
+document_store_science = ChromaDocumentStore(persist_path="rag_epub_doc_store_science")
 retriever_science = ChromaEmbeddingRetriever(document_store_science)
 generator_science = HuggingFaceLocalGenerator(
     model="google/flan-t5-large",
     task="text2text-generation",
     token=Secret.from_env_var("HF_API_TOKEN"),
+    generation_kwargs={
+        "max_new_tokens": 500,
+    },
 )
 pipeline_science = build_rag_pipeline(
-    text_embedder_science,
     retriever_science,
-    template,
     generator_science,
 )
 
@@ -129,10 +135,12 @@ documentary_bases = [
     },
 ]
 
+
 @app.get("/health")
 def health_check():
     """Health check of the application."""
     return Response(response="OK", status=HTTPStatus.OK)
+
 
 @app.post("/summarize")
 @check_token()
@@ -149,28 +157,17 @@ async def post_summarize():
     model_name = "facebook/bart-large-cnn"
 
     try:
-        generator = HuggingFaceLocalGenerator(
-            model_name,
-            task="text2text-generation",
-            generation_kwargs={
-                "num_beams": 1,
-                "early_stopping": True,
-                "num_return_sequences": 1,
-                "max_length": 512,
-            },
-        )
-        generator.warm_up()
-        pipeline = Pipeline()
-        pipeline.add_component("summarizer", generator)
-        chunks = chunk_text(text, model_name)
-        all_replies = []
-        for chunk in chunks:
-            data = {"summarizer": {"prompt": f"Summarize this text: {chunk}"}}
-            result = pipeline.run(data=data)["summarizer"]["replies"][0]
-            all_replies.append(result)
-        combined_result = " ".join(all_replies)
-        data = {"summarizer": {"prompt": f"Summarize this text: {combined_result}"}}
-        summary = pipeline.run(data=data)["summarizer"]["replies"]
+        with context:
+            summarize_pipeline = build_summarize_pipeline(model_name)
+            chunks = chunk_text(text, model_name, 800)
+            all_replies = []
+            for chunk in chunks:
+                data = {"summarizer": {"prompt": f"Summarize this text: {chunk}"}}
+                result = summarize_pipeline.run(data=data)["summarizer"]["replies"][0]
+                all_replies.append(result)
+            combined_result = " ".join(all_replies)
+            data = {"summarizer": {"prompt": f"Summarize this text: {combined_result}"}}
+            summary = summarize_pipeline.run(data=data)["summarizer"]["replies"][0]
     except ValueError as e:
         return (str(e), 400)
 
@@ -179,6 +176,7 @@ async def post_summarize():
             "summary": summary,
         }
     )
+
 
 @app.post("/translate")
 @check_token()
@@ -202,23 +200,17 @@ async def post_translate():
     model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
 
     try:
-        generator = HuggingFaceLocalGenerator(
-            model_name,
-            task="text2text-generation",
-            token=Secret.from_env_var("HF_API_TOKEN"),
-        )
-        generator.warm_up()
-        pipeline = Pipeline()
-        pipeline.add_component("translater", generator)
-        chunks = chunk_text(text, model_name)
-        all_replies = []
-        for chunk in chunks:
-            data = {"translater": {"prompt": f"{chunk}"}}
-            result = pipeline.run(data=data)["translater"]["replies"][0]
-            all_replies.append(result)
-        combined_result = " ".join(all_replies)
-    except OSError as e:
-        return (f"Error: model does not support these languages for translation.", 400)
+        with context:
+            pipeline = build_translate_pipeline(model_name)
+            all_replies = []
+            chunks = chunk_text(text, model_name, 200)
+            for chunk in chunks:
+                data = {"translater": {"prompt": f"{chunk}"}}
+                result = pipeline.run(data=data)["translater"]["replies"][0]
+                all_replies.append(result)
+            combined_result = " ".join(all_replies)
+    except OSError:
+        return ("Error: model does not support these languages for translation.", 400)
     except ValueError as e:
         return (f"Error: {e}", 400)
 
@@ -227,6 +219,7 @@ async def post_translate():
             "translation": combined_result,
         }
     )
+
 
 @app.post("/context_predict")
 @check_token()
@@ -243,31 +236,13 @@ async def context_predict():
 
     query = request.form["query"]
     context = request.form["context"]
+    model_name = "google/flan-t5-large"
+    pipeline_context_predict = build_context_predict_pipeline(model_name)
 
     try:
-        generator = HuggingFaceLocalGenerator(
-            model="google/flan-t5-large",
-            task="text2text-generation",
-            generation_kwargs={
-                "max_new_tokens": 100,
-                "temperature": 0.9,
-                "max_length": 512,
-            },
-        )
-        template = """
-            Given the following information, answer the question.
-
-            Context: {{ context }}
-
-            Question: {{ query }}?
-            """
-        pipeline = Pipeline()
-        pipeline.add_component("prompt_builder", PromptBuilder(template=template))
-        pipeline.add_component("llm", generator)
-        pipeline.connect("prompt_builder", "llm")
-        data = {"prompt_builder": {"query": query, "context": context}}
-        result = pipeline.run(data=data)["llm"]["replies"]
-
+        with context:
+            data = {"prompt_builder": {"query": query, "context": context}}
+            result = pipeline_context_predict.run(data=data)["llm"]["replies"]
     except ValueError as e:
         return (str(e), 400)
 
@@ -276,6 +251,7 @@ async def context_predict():
             "result": result,
         }
     )
+
 
 @app.get("/documentary_bases")
 @check_token()
@@ -295,6 +271,7 @@ async def list_databases():
             "documentary_bases": databases,
         }
     )
+
 
 @app.post("/rag_predict")
 @check_token()
@@ -319,20 +296,22 @@ async def query_rag():
         return ("Error database not found", 404)
 
     try:
-        pipeline = database["pipeline"]
-        response = pipeline.run(
-            {
-                "text_embedder": {"text": query},
-                "prompt_builder": {"question": query},
-            }
-        )
-        return jsonify(
-            {
-                "result": response["llm"]["replies"],
-            }
-        )
+        with context:
+            pipeline = database["pipeline"]
+            response = pipeline.run(
+                {
+                    "text_embedder": {"text": query},
+                    "prompt_builder": {"question": query},
+                }
+            )["llm"]["replies"]
+            return jsonify(
+                {
+                    "result": response,
+                }
+            )
     except Exception as e:
         return (f"Error during prediction {e}", 400)
+
 
 @app.post("/add_reference")
 @check_token()
@@ -365,9 +344,7 @@ async def add_ref():
         return jsonify({"Error": "No selected file"}), 400
 
     if file and (
-        file.filename.endswith(".epub")
-        or file.filename.endswith(".docx")
-        or file.filename.endswith(".pdf")
+        file.filename.endswith(".epub") or file.filename.endswith(".docx") or file.filename.endswith(".pdf")
     ):
         file_ext = os.path.splitext(file.filename)[1]
         with tempfile.NamedTemporaryFile(
@@ -386,13 +363,13 @@ async def add_ref():
             else:
                 converter = PyPDFToDocument()
                 sources = [temp_file_name]
-            load_document(
-                converter=converter,
-                document_store=database["document_store"],
-                doc_embedder=doc_embedder,
-                sources=sources,
-                reference=reference,
-            )
+            with context:
+                load_document(
+                    converter=converter,
+                    document_store=database["document_store"],
+                    sources=sources,
+                    reference=reference,
+                )
             database["references"].append(reference)
             return ("File successfully processed", 200)
         except Exception as e:
@@ -404,6 +381,7 @@ async def add_ref():
             {"Error": "Invalid file extension - must be epub, docx or PDF."},
             400,
         )
+
 
 @app.delete("/delete_reference")
 @check_token()
