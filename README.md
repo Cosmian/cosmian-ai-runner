@@ -1,6 +1,12 @@
-# Cosmian AI Backend
+# Cosmian AI runner
 
-Confidential computing backend to run language models
+Confidential computing backend to run AI models
+
+## Structure
+
+The AI Runner is a Flask-based application that provides endpoints for performing inference across various AI tasks and pipelines, such as text summarization, translation, text querying, and retrieval-augmented generation (RAG) over document databases.
+
+These pipelines are constructed using the Haystack library (https://haystack.deepset.ai/) as a foundation. Users have the flexibility to customize the pipelines by modifying the loaded models, selecting a preferred vector database, and tailoring the setup to meet specific requirements.
 
 ## Usage
 
@@ -12,36 +18,7 @@ Confidential computing backend to run language models
 
 ```bash
 CONFIG_PATH="./run/config.json" cosmian-ai-runner --port 5001
+Using current model, you need to add your HuggingFace token as an env variable (HF_API_TOKEN). 
 ```
 
-- Create a `supervisord` service:
-
-Sample config file: [./run/cosmian-ai-backend.conf](./run/cosmian-ai-backend.conf)
-
-## API endpoints
-
-`/summarize`
-
-Request:
-
-- `doc`: content of the document to summarize (String),
-
-- `src_lang`: **optional** source language of the text to summarize (String)
-
-Response:
-
-- `summary`: result (String)
-
-`/translate`
-
-Request:
-
-- `doc`: content of the document to translate (String),
-
-- `src_lang`: source language of the text to translate (String),
-
-- `tgt_lang`: desired output language (String)
-
-Response:
-
-- `translation`: result (String)
+Details of the API Endpoints are explained in the `app/` folder of the repository.

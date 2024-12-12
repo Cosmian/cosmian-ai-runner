@@ -25,7 +25,7 @@ pip install dist/*.whl
 ## Test it
 
 ```sh
-CONFIG_PATH="./tests/config.json" python tests/test.py
+CONFIG_PATH="./tests/config.json" HF_API_TOKEN="xxx" python tests/test.py
 ```
 
 ## Serve the API
@@ -196,7 +196,7 @@ You can add an `.epub` document, `.docx` document or a PDF to the vector DB of t
   File successfully processed
   ```
 
-*So far, only epub files can be handled.*
+*So far, only epub, pdf and docx files can be handled.*
 
 You can remove a reference to the vector DB of the given RAG associated to a database, using:
 - Endpoint: `/delete_reference`
