@@ -6,12 +6,11 @@ retrieval-augmented generation (RAG), and model predictions using Hugging Face m
 import os
 import tempfile
 from http import HTTPStatus
-
-import subprocess
-import torch
-from asgiref.wsgi import WsgiToAsgi
 from contextlib import nullcontext
-from flask import Flask, Response, jsonify, request
+
+from asgiref.wsgi import WsgiToAsgi
+import torch
+from flask import Flask, Response, jsonify, request, current_app
 from flask_cors import CORS
 
 from haystack.utils import Secret
@@ -38,49 +37,48 @@ from .utils import (
 torch.set_num_threads(os.cpu_count() or 1)
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024 * 1024  # 1 GB
 app_asgi = WsgiToAsgi(app)
-CORS(app, resources={r"/*": {"origins": "*"}})
-
-config_path = os.getenv("CONFIG_PATH", "config.json")
-with open(config_path, encoding="utf-8") as f:
-    AppConfig.load(f)
 
 
-# Determine the device
-def check_amx_support():
-    try:
-        # Check CPU flags for AMX
-        cpu_info = subprocess.check_output(
-            "grep -o 'amx' /proc/cpuinfo", shell=True
-        ).decode()
-        return "amx" in cpu_info
-    except Exception:
-        return False
+def create_app():
+    """
+    Setup device and autocast context, checking the hardware configuration and the amx option
+    """
+    app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024 * 1024  # 1 GB
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
+    config_path = os.getenv("CONFIG_PATH", "config.json")
+    with open(config_path, encoding="utf-8") as f:
+        AppConfig.load(f)
 
-if check_amx_support():
-    print("AMX is supported on this system.")
-else:
-    print("AMX is not supported on this system.")
+    # Determine the device
+    # Read the AMX flag from the environment variable
+    amx_enabled = os.getenv("AMX_ENABLED", "0") == "1"
 
-if torch.cuda.is_available():
-    print("Application is using GPU")
-    device = torch.device("cuda")  # Use GPU if available
-    autocast_context = torch.amp.autocast("cuda")
-elif torch.backends.cpu and check_amx_support():  # Check for Intel AMX
-    print("Application is using AMX")
-    device = torch.device("cpu")
-    autocast_context = torch.amp.autocast("cpu")
-elif torch.backends.mps.is_available():  # Check for Metal on macOS
-    print("Application is using MPS")
-    device = torch.device("mps")
-    autocast_context = None  # Metal backend does not support autocast
-else:
-    print("Application is using CPU")
-    device = torch.device("cpu")
-    autocast_context = None  # Default CPU without autocast
-context = autocast_context if autocast_context else nullcontext()
+    if amx_enabled:
+        print("AMX extension is enabled!")
+    else:
+        print("AMX extension is disabled.")
+
+    if torch.cuda.is_available():
+        print("Application is using GPU")
+        torch.device("cuda")  # Use GPU if available
+        autocast_context = torch.amp.autocast("cuda")
+    elif torch.backends.cpu and amx_enabled:  # Check for Intel AMX
+        print("Application is using AMX")
+        torch.device("cpu")
+        autocast_context = torch.amp.autocast("cpu")
+    elif torch.backends.mps.is_available():  # Check for Metal on macOS
+        print("Application is using MPS")
+        torch.device("mps")
+        autocast_context = None  # Metal backend does not support autocast
+    else:
+        print("Application is using CPU")
+        torch.device("cpu")
+        autocast_context = None  # Default CPU without autocast
+
+    # Attach context to the app object
+    app.config["AUTOMATIC_CAST_CONTEXT"] = autocast_context or nullcontext()
 
 
 # Build documentary database
@@ -155,9 +153,10 @@ async def post_summarize():
 
     text = request.form["doc"]
     model_name = "facebook/bart-large-cnn"
+    autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
-        with context:
+        with autocast_context:
             summarize_pipeline = build_summarize_pipeline(model_name)
             chunks = chunk_text(text, model_name, 800)
             all_replies = []
@@ -198,9 +197,10 @@ async def post_translate():
     tgt_lang = request.form["tgt_lang"]
 
     model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
+    autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
-        with context:
+        with autocast_context:
             pipeline = build_translate_pipeline(model_name)
             all_replies = []
             chunks = chunk_text(text, model_name, 200)
@@ -238,9 +238,10 @@ async def context_predict():
     context = request.form["context"]
     model_name = "google/flan-t5-large"
     pipeline_context_predict = build_context_predict_pipeline(model_name)
+    autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
-        with context:
+        with autocast_context:
             data = {"prompt_builder": {"query": query, "context": context}}
             result = pipeline_context_predict.run(data=data)["llm"]["replies"]
     except ValueError as e:
@@ -294,9 +295,10 @@ async def query_rag():
     )
     if database is None:
         return ("Error database not found", 404)
+    autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
-        with context:
+        with autocast_context:
             pipeline = database["pipeline"]
             response = pipeline.run(
                 {
@@ -333,6 +335,7 @@ async def add_ref():
     file = request.files["file"]
     database_name = request.form["db"]
     reference = request.form["reference"]
+    autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     database = next(
         (obj for obj in documentary_bases if obj["name"] == database_name), None
@@ -363,7 +366,7 @@ async def add_ref():
             else:
                 converter = PyPDFToDocument()
                 sources = [temp_file_name]
-            with context:
+            with autocast_context:
                 load_document(
                     converter=converter,
                     document_store=database["document_store"],

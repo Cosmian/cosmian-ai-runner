@@ -2,6 +2,7 @@
 
 API to run a language model in a confidential VM
 
+
 ## Install dependencies
 
 By default all dependencies will be installed with the app.
@@ -9,11 +10,6 @@ By default all dependencies will be installed with the app.
 pip install -r requirements.txt
 ```
 
-## Hardware optimization
-
-Upon starting the app, the hardware configuration is automatically checked to ensure optimal performance.
-When running on Intel Xeon processors, the app will leverage the AMX (Advanced Matrix Extensions)
-to significantly boost performance, particularly for matrix-heavy operations often encountered in machine learning tasks.
 
 ## Build and install the app
 
@@ -22,11 +18,13 @@ python -m build
 pip install dist/*.whl
 ```
 
+
 ## Test it
 
 ```sh
 CONFIG_PATH="./tests/config.json" HF_API_TOKEN="xxx" python tests/test.py
 ```
+
 
 ## Serve the API
 
@@ -35,6 +33,21 @@ Be sure to have `~/.local/bin` in your `PATH`
 ```sh
 CONFIG_PATH="./tests/config.json" cosmian-ai-runner
 ```
+
+
+## Hardware optimization
+
+When running on Intel Xeon processors, the application can leverage AMX (Advanced Matrix Extensions) to significantly
+enhance performance, especially for matrix-intensive operations commonly found in machine learning workloads. To enable
+this feature, simply start the application with the `--amx` option.
+
+```sh
+CONFIG_PATH="./tests/config.json" HF_API_TOKEN="xxx" cosmian-ai-runner -p 5001 --amx
+```
+
+If you are running the Flask application locally using flask run, you can enable the AMX option by setting the
+environment variable `AMX_ENABLED` to "1"
+
 
 ## Config file
 

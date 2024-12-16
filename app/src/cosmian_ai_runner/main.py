@@ -2,11 +2,12 @@
 """Main function"""
 import argparse
 import asyncio
+import os
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
 
-from .app import app_asgi
+from .app import app_asgi, create_app
 
 
 def main():
@@ -17,8 +18,8 @@ def main():
     parser.add_argument(
         "-p", "--port", type=int, default=5000, help="The listening port"
     )
+    parser.add_argument("--amx", action="store_true", help="Enable AMX extension")
     args = parser.parse_args()
-
     config_map = {
         "bind": f"0.0.0.0:{args.port}",
         "alpn_protocols": ["h2"],
@@ -30,6 +31,8 @@ def main():
     }
 
     config = Config.from_mapping(config_map)
+    os.environ["AMX_ENABLED"] = "1" if args.amx else "0"
+    create_app()
     asyncio.run(serve(app_asgi, config))
 
 
