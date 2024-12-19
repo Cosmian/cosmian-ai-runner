@@ -55,3 +55,15 @@ class AppConfig:
         if config is not None and "auth" in config:
             return config["auth"]
         return None
+
+    @classmethod
+    def get_documentary_bases_config(cls) -> Optional[Dict]:
+        """
+        Get the documentary bases configuration.
+        Returns:
+            Optional[Dict]: The documentary bases configuration if available, otherwise None.
+        """
+        config = cls.get()
+        if config is not None and "documentary_bases" in config:
+            return config["documentary_bases"]
+        return None

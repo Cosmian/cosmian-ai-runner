@@ -38,18 +38,21 @@ torch.set_num_threads(os.cpu_count() or 1)
 
 app = Flask(__name__)
 app_asgi = WsgiToAsgi(app)
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024 * 1024  # 1 GB
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+config_path = os.getenv("CONFIG_PATH", "config.json")
+with open(config_path, encoding="utf-8") as f:
+    AppConfig.load(f)
+app.config["AUTOMATIC_CAST_CONTEXT"] = nullcontext()
+rag_config = AppConfig.get_documentary_bases_config()
+print(rag_config)
 
 
 def create_app():
     """
     Setup device and autocast context, checking the hardware configuration and the amx option
     """
-    app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024 * 1024  # 1 GB
-    CORS(app, resources={r"/*": {"origins": "*"}})
-
-    config_path = os.getenv("CONFIG_PATH", "config.json")
-    with open(config_path, encoding="utf-8") as f:
-        AppConfig.load(f)
 
     # Determine the device
     # Read the AMX flag from the environment variable
@@ -81,57 +84,30 @@ def create_app():
     app.config["AUTOMATIC_CAST_CONTEXT"] = autocast_context or nullcontext()
 
 
-# Build documentary database
+# Build documentary databases
+documentary_bases = []
 
-# Litterature basis
-document_store_litterature = ChromaDocumentStore(
-    persist_path="rag_epub_doc_store_litterature"
-)
-retriever_litterature = ChromaEmbeddingRetriever(document_store_litterature)
-generator_litterature = HuggingFaceLocalGenerator(
-    model="google/flan-t5-large",
-    task="text2text-generation",
-    token=Secret.from_env_var("HF_API_TOKEN"),
-    generation_kwargs={
-        "max_new_tokens": 500,
-    },
-)
-pipeline_litterature = build_rag_pipeline(
-    retriever_litterature,
-    generator_litterature,
-)
-
-# Science basis
-document_store_science = ChromaDocumentStore(persist_path="rag_epub_doc_store_science")
-retriever_science = ChromaEmbeddingRetriever(document_store_science)
-generator_science = HuggingFaceLocalGenerator(
-    model="google/flan-t5-large",
-    task="text2text-generation",
-    token=Secret.from_env_var("HF_API_TOKEN"),
-    generation_kwargs={
-        "max_new_tokens": 500,
-    },
-)
-pipeline_science = build_rag_pipeline(
-    retriever_science,
-    generator_science,
-)
-
-# Documentary bases
-documentary_bases = [
-    {
-        "name": "litterature",
-        "document_store": document_store_litterature,
-        "pipeline": pipeline_litterature,
-        "references": [],
-    },
-    {
-        "name": "science",
-        "document_store": document_store_science,
-        "pipeline": pipeline_science,
-        "references": [],
-    },
-]
+for base in rag_config:
+    document_store = ChromaDocumentStore(persist_path=base["persist_path"])
+    retriever = ChromaEmbeddingRetriever(document_store)
+    generator = HuggingFaceLocalGenerator(
+        model=base["model"],
+        task=base["task"],
+        token=Secret.from_env_var("HF_API_TOKEN"),
+        generation_kwargs=base["kwargs"],
+    )
+    pipeline = build_rag_pipeline(
+        retriever,
+        generator,
+    )
+    documentary_bases.append(
+        {
+            "name": base["name"],
+            "document_store": document_store,
+            "pipeline": pipeline,
+            "references": [],
+        },
+    )
 
 
 @app.get("/health")
@@ -201,12 +177,12 @@ async def post_translate():
 
     try:
         with autocast_context:
-            pipeline = build_translate_pipeline(model_name)
+            translate_pipeline = build_translate_pipeline(model_name)
             all_replies = []
             chunks = chunk_text(text, model_name, 200)
             for chunk in chunks:
                 data = {"translater": {"prompt": f"{chunk}"}}
-                result = pipeline.run(data=data)["translater"]["replies"][0]
+                result = translate_pipeline.run(data=data)["translater"]["replies"][0]
                 all_replies.append(result)
             combined_result = " ".join(all_replies)
     except OSError:
@@ -299,8 +275,8 @@ async def query_rag():
 
     try:
         with autocast_context:
-            pipeline = database["pipeline"]
-            response = pipeline.run(
+            rag_pipeline = database["pipeline"]
+            response = rag_pipeline.run(
                 {
                     "text_embedder": {"text": query},
                     "prompt_builder": {"question": query},
