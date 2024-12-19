@@ -46,7 +46,6 @@ with open(config_path, encoding="utf-8") as f:
     AppConfig.load(f)
 app.config["AUTOMATIC_CAST_CONTEXT"] = nullcontext()
 rag_config = AppConfig.get_documentary_bases_config()
-print(rag_config)
 
 
 def create_app():
@@ -87,27 +86,28 @@ def create_app():
 # Build documentary databases
 documentary_bases = []
 
-for base in rag_config:
-    document_store = ChromaDocumentStore(persist_path=base["persist_path"])
-    retriever = ChromaEmbeddingRetriever(document_store)
-    generator = HuggingFaceLocalGenerator(
-        model=base["model"],
-        task=base["task"],
-        token=Secret.from_env_var("HF_API_TOKEN"),
-        generation_kwargs=base["kwargs"],
-    )
-    pipeline = build_rag_pipeline(
-        retriever,
-        generator,
-    )
-    documentary_bases.append(
-        {
-            "name": base["name"],
-            "document_store": document_store,
-            "pipeline": pipeline,
-            "references": [],
-        },
-    )
+if rag_config:
+    for base in rag_config:
+        document_store = ChromaDocumentStore(persist_path=base["persist_path"])
+        retriever = ChromaEmbeddingRetriever(document_store)
+        generator = HuggingFaceLocalGenerator(
+            model=base["model"],
+            task=base["task"],
+            token=Secret.from_env_var("HF_API_TOKEN"),
+            generation_kwargs=base["kwargs"],
+        )
+        pipeline = build_rag_pipeline(
+            retriever,
+            generator,
+        )
+        documentary_bases.append(
+            {
+                "name": base["name"],
+                "document_store": document_store,
+                "pipeline": pipeline,
+                "references": [],
+            },
+        )
 
 
 @app.get("/health")

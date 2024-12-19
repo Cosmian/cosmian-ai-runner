@@ -64,6 +64,22 @@ It should contain a list of the following fields per identity providers:
 
 - `client_id`: ID of the client calling this application set by the identity provider
 
+### RAG documentary bases
+
+This section allows you to define a list of RAG (Retrieval-Augmented Generation) documentary bases to be created.
+
+Each documentary base should include the following fiel
+
+- `name`: display name of the documentary base
+
+- `persist_path`: name of the file where the RAG document store will be saved locally
+
+- `model`: name of the model used for final inference in the RAG query pipeline
+
+- `task`: task associated with the model for final inference in the RAG query pipeline
+
+- `kwargs`: additional keyword arguments to be passed to the model for final inference in the RAG query pipeline
+
 
 ### Sample config file
 
@@ -77,6 +93,26 @@ It should contain a list of the following fields per identity providers:
       }
     ]
   },
+    "documentary_bases": [
+    {
+      "name": "Litterature",
+      "persist_path": "rag_store_litterature",
+      "model": "google/flan-t5-large",
+      "task": "text2text-generation",
+      "kwargs": {
+        "max_new_tokens": 500
+      }
+    },
+    {
+      "name": "Science",
+      "persist_path": "rag_store_science",
+      "model": "google/flan-t5-large",
+      "task": "text2text-generation",
+      "kwargs": {
+        "max_new_tokens": 500
+      }
+    }
+  ]
 }
 ```
 
