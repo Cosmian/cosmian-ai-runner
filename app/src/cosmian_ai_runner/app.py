@@ -85,10 +85,14 @@ def create_app():
 
 # Build documentary databases
 documentary_bases = []
+tmp_dir = os.path.join(tempfile.gettempdir(), "document_store")
+if not os.path.exists(tmp_dir):
+    os.makedirs(tmp_dir)
 
 if rag_config:
     for base in rag_config:
-        document_store = ChromaDocumentStore(persist_path=base["persist_path"])
+        tmp_file_path = os.path.join(tmp_dir, base["persist_path"])
+        document_store = ChromaDocumentStore(persist_path=tmp_file_path)
         retriever = ChromaEmbeddingRetriever(document_store)
         generator = HuggingFaceLocalGenerator(
             model=base["model"],
@@ -303,8 +307,11 @@ async def add_ref():
         return ("Error: Missing selected documentary basis", 400)
     if "reference" not in request.form:
         return ("Error: Missing reference", 400)
-    if not os.path.exists("data"):
-        os.makedirs("data")
+
+    tmp_dir = os.path.join(tempfile.gettempdir(), "app_data")
+
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
     if "file" not in request.files:
         return jsonify({"Error": "No file part"}), 400
 
@@ -312,7 +319,6 @@ async def add_ref():
     database_name = request.form["db"]
     reference = request.form["reference"]
     autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
-
     database = next(
         (obj for obj in documentary_bases if obj["name"] == database_name), None
     )
@@ -327,7 +333,7 @@ async def add_ref():
     ):
         file_ext = os.path.splitext(file.filename)[1]
         with tempfile.NamedTemporaryFile(
-            dir="data", suffix=file_ext, delete=False
+            dir=tmp_dir, suffix=file_ext, delete=False
         ) as temp_file:
             temp_file_name = temp_file.name
             file.save(temp_file_name)

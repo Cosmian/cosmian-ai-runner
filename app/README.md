@@ -66,9 +66,13 @@ It should contain a list of the following fields per identity providers:
 
 ### RAG documentary bases
 
-This section allows you to define a list of RAG (Retrieval-Augmented Generation) documentary bases to be created.
+This section enables you to define a list of Retrieval-Augmented Generation (RAG) documentary bases to be created.
 
-Each documentary base should include the following fiel
+In this Flask application example, we have chosen to use the Chroma document store along with the "sentence-transformers/all-MiniLM-L12-v2" model as the default sentence transformer. These choices can be modified by building your own Flask application based on this example.
+
+However, from this flask application, you have the flexibility to configure the documentary bases you wish to set up and specify the model to be used for final inference. This allows you to tailor the application to your specific needs.
+
+Each documentary base should include the following fields:
 
 - `name`: display name of the documentary base
 
@@ -80,6 +84,8 @@ Each documentary base should include the following fiel
 
 - `kwargs`: additional keyword arguments to be passed to the model for final inference in the RAG query pipeline
 
+
+Each document store are currently stored locally within a /tmp/document_store/{persist_path} folder.
 
 ### Sample config file
 
@@ -120,6 +126,8 @@ Each documentary base should include the following fiel
 
 ### Summarize text
 
+Summary is made using "facebook/bart-large-cnn" model.
+
 - Endpoint: `/summarize`
 - Method: **POST**
 - Description: get the summary of a given text, using the configured model
@@ -139,6 +147,8 @@ curl 'http://0.0.0.0:5000/summarize' \
 ```
 
 ### Translate text
+
+Translation is made using one of the "Helsinki-NLP/opus-mt" models.
 
 - Endpoint: `/translate`
 - Method: **POST**
