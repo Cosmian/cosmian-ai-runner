@@ -125,14 +125,14 @@ def build_summarize_pipeline(model_name):
     return pipeline
 
 
-def build_translate_pipeline(model_name):
+def build_translate_pipeline(model_name, hf_token):
     """
     Build translation pipeline
     """
     generator = HuggingFaceLocalGenerator(
         model_name,
         task="text2text-generation",
-        token=Secret.from_env_var("HF_API_TOKEN"),
+        token=Secret.from_token(hf_token),
         generation_kwargs={
             "max_new_tokens": 500,
         },

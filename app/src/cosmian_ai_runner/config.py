@@ -67,3 +67,27 @@ class AppConfig:
         if config is not None and "documentary_bases" in config:
             return config["documentary_bases"]
         return None
+
+    @classmethod
+    def use_amx_extension(cls) -> bool:
+        """
+        Determine if the app should use the amx extension or not
+        Returns:
+            Boolean: The app uses or not the amx extension
+        """
+        config = cls.get()
+        if config is not None and "use_amx" in config:
+            return config["use_amx"]
+        return False
+
+    @classmethod
+    def get_hf_token(cls) -> Optional[str]:
+        """
+        Get Hugging Face token to use models
+        Returns:
+            Option[String]: The token to use
+        """
+        config = cls.get()
+        if config is not None and "hf_token" in config:
+            return config["hf_token"]
+        return None
