@@ -46,7 +46,9 @@ with open(config_path, encoding="utf-8") as f:
     AppConfig.load(f)
 app.config["AUTOMATIC_CAST_CONTEXT"] = nullcontext()
 rag_config = AppConfig.get_documentary_bases_config()
-
+hf_token = AppConfig.get_hf_token()
+if hf_token is None:
+    raise Exception("Error: Missing Hugging face token from configuration")
 
 def create_app():
     """
@@ -55,7 +57,7 @@ def create_app():
 
     # Determine the device
     # Read the AMX flag from the environment variable
-    amx_enabled = os.getenv("AMX_ENABLED", "0") == "1"
+    amx_enabled = AppConfig.use_amx_extension()
 
     if amx_enabled:
         print("AMX extension is enabled!")
@@ -97,7 +99,7 @@ if rag_config:
         generator = HuggingFaceLocalGenerator(
             model=base["model"],
             task=base["task"],
-            token=Secret.from_env_var("HF_API_TOKEN"),
+            token=Secret.from_token(hf_token),
             generation_kwargs=base["kwargs"],
         )
         pipeline = build_rag_pipeline(
@@ -181,7 +183,7 @@ async def post_translate():
 
     try:
         with autocast_context:
-            translate_pipeline = build_translate_pipeline(model_name)
+            translate_pipeline = build_translate_pipeline(model_name, hf_token)
             all_replies = []
             chunks = chunk_text(text, model_name, 200)
             for chunk in chunks:
@@ -189,8 +191,8 @@ async def post_translate():
                 result = translate_pipeline.run(data=data)["translater"]["replies"][0]
                 all_replies.append(result)
             combined_result = " ".join(all_replies)
-    except OSError:
-        return ("Error: model does not support these languages for translation.", 400)
+    except OSError as e:
+        return (f"Error: using model for translation: {e}", 400)
     except ValueError as e:
         return (f"Error: {e}", 400)
 

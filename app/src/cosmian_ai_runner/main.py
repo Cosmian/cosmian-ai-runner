@@ -18,7 +18,6 @@ def main():
     parser.add_argument(
         "-p", "--port", type=int, default=5000, help="The listening port"
     )
-    parser.add_argument("--amx", action="store_true", help="Enable AMX extension")
     args = parser.parse_args()
     config_map = {
         "bind": f"0.0.0.0:{args.port}",
@@ -31,7 +30,6 @@ def main():
     }
 
     config = Config.from_mapping(config_map)
-    os.environ["AMX_ENABLED"] = "1" if args.amx else "0"
     create_app()
     asyncio.run(serve(app_asgi, config))
 

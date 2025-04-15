@@ -32,14 +32,14 @@ CONFIG_PATH="./src/cosmian_ai_runner/config.json" cosmian-ai-runner
 
 When running on Intel Xeon processors, the application can leverage AMX (Advanced Matrix Extensions) to significantly
 enhance performance, especially for matrix-intensive operations commonly found in machine learning workloads. To enable
-this feature, simply start the application with the `--amx` option.
+this feature, simply start the application with the amx option set to true from your config file.
 
 ```sh
-CONFIG_PATH="./src/cosmian_ai_runner/config.json" HF_API_TOKEN="xxx" cosmian-ai-runner -p 5001 --amx
+CONFIG_PATH="./src/cosmian_ai_runner/config.json" cosmian-ai-runner -p 5001
 ```
 
-If you are running the Flask application locally using flask run, you can enable the AMX option by setting the
-environment variable `AMX_ENABLED` to "1"
+If you are running the Flask application locally using flask run, you can enable the AMX option by adding the "use_amx" key to
+true from your config file.
 
 
 ## Config file
@@ -84,7 +84,7 @@ Each document store are currently stored locally within a /tmp/document_store/{p
 
 ```json
 {
-  "auth": {
+  "auth": {                   // Optional to enable auth
     "openid_configs": [
       {
         "client_id": "XXXX",
@@ -92,6 +92,8 @@ Each document store are currently stored locally within a /tmp/document_store/{p
       }
     ]
   },
+    "use_amx": false,       // Optional - default set to false
+    "hf_token": "hf_token", // Mandatory (used for translation models)
     "documentary_bases": [
     {
       "name": "Litterature",
@@ -200,7 +202,7 @@ Translation is made using one of the "Helsinki-NLP/opus-mt" models.
 - Example:
   ```
   curl 'http://0.0.0.0:5000/rag_predict' \
-  --form 'query="Who is Esmeralda?"' --form 'db="litterature"'
+  --form 'query="Who is Esmeralda?"' --form 'db="Litterature"'
   ```
 - Response:
   The response contains the answer to the query, from given context.
@@ -221,10 +223,10 @@ You can list available documentary basis and their uploaded references from curr
   ```
   {
       "documentary_bases": {
-          "litterature": [
+          "Litterature": [
               "NDame de Paris"
           ],
-          "science": []
+          "Science": []
       }
   }
   ```
@@ -241,7 +243,7 @@ You can add an `.epub` document, `.docx` document or a PDF to the vector DB of t
     `reference` - reference to insert
 - Example:
   ```
-  curl -F "file=@/data/doc.pdf" --form 'db="litterature"' --form 'reference="crypto"'  http://0.0.0.0:5000/add_reference
+  curl -F "file=@/data/doc.pdf" --form 'db="Litterature"' --form 'reference="crypto"'  http://0.0.0.0:5000/add_reference
   ```
 - Response:
   ```

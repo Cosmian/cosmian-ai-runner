@@ -18,7 +18,7 @@ These pipelines are constructed using the Haystack library (https://haystack.dee
 
 ```bash
 CONFIG_PATH="./run/config.json" cosmian-ai-runner --port 5001
-Using current model, you need to add your HuggingFace token as an env variable (HF_API_TOKEN). 
+Using current model, you need to add your HuggingFace token from your config file.
 ```
 
 Details of the API Endpoints are explained in the `app/` folder of the repository.
