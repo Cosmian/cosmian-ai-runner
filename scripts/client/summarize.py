@@ -8,9 +8,8 @@ import requests
 
 cwd_path: Path = Path(__file__).parent.resolve()
 
-
 def summarize_data(doc_content: bytes, url: str):
-    data = {"doc": doc_content, "src_lang": "en"}
+    data = {"doc": doc_content}
     try:
         response: requests.Response = requests.post(f"{url}/summarize", data=data)
     except requests.exceptions.SSLError:

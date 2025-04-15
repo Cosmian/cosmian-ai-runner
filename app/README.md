@@ -19,19 +19,12 @@ pip install dist/*.whl
 ```
 
 
-## Test it
-
-```sh
-CONFIG_PATH="./tests/config.json" HF_API_TOKEN="xxx" python tests/test.py
-```
-
-
 ## Serve the API
 
 Be sure to have `~/.local/bin` in your `PATH`
 
 ```sh
-CONFIG_PATH="./tests/config.json" cosmian-ai-runner
+CONFIG_PATH="./src/cosmian_ai_runner/config.json" cosmian-ai-runner
 ```
 
 
@@ -42,7 +35,7 @@ enhance performance, especially for matrix-intensive operations commonly found i
 this feature, simply start the application with the `--amx` option.
 
 ```sh
-CONFIG_PATH="./tests/config.json" HF_API_TOKEN="xxx" cosmian-ai-runner -p 5001 --amx
+CONFIG_PATH="./src/cosmian_ai_runner/config.json" HF_API_TOKEN="xxx" cosmian-ai-runner -p 5001 --amx
 ```
 
 If you are running the Flask application locally using flask run, you can enable the AMX option by setting the
