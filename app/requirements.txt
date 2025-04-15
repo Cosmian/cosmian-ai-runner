@@ -7,7 +7,7 @@ Flask[async]~=3.0.2
 haystack-ai==2.6.1
 hypercorn==0.17.3
 lxml_html_clean==0.4.1
-nltk==3.8.1
+nltk==3.9.1
 numpy==1.26.4
 packaging==24.2
 pandoc==2.3
