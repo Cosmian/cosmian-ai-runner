@@ -50,6 +50,7 @@ hf_token = AppConfig.get_hf_token()
 if hf_token is None:
     raise Exception("Error: Missing Hugging face token from configuration")
 
+
 def create_app():
     """
     Setup device and autocast context, checking the hardware configuration and the amx option

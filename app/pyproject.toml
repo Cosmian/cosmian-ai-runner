@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Cosmian Confidential AI API"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -26,4 +26,4 @@ version = { attr = "cosmian_ai_runner.__version__" }
 dependencies = { file = "requirements.txt" }
 
 [project.scripts]
-cosmian-ai-runner = "cosmian_ai_runner.main:main"
+cosmian_ai_runner = "cosmian_ai_runner.main:main"

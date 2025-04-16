@@ -2,7 +2,6 @@
 """Main function"""
 import argparse
 import asyncio
-import os
 
 from hypercorn.asyncio import serve
 from hypercorn.config import Config
