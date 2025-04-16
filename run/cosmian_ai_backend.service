@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=cosmian
-ExecStart=/usr/bin/bash -c "cosmian-ai-runner -p 5001 --amx"
+ExecStart=/usr/bin/bash -c "cosmian-ai-runner -p 5001"
 Restart=always
 RestartSec=3
 Environment="CONFIG_PATH=/home/cosmian/cosmian_ai_backend/run/config.json"
