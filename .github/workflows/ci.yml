@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: python:3.12.10
+      image: python:3.9.22
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies
@@ -30,7 +30,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: python:3.12.10
+      image: python:3.9.22
     needs: build
     steps:
       - uses: actions/checkout@v3
