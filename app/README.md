@@ -93,7 +93,6 @@ Each document store are currently stored locally within a /tmp/document_store/{p
     ]
   },
     "use_amx": false,       // Optional - default set to false
-    "hf_token": "hf_token", // Mandatory (used for translation models)
     "documentary_bases": [
     {
       "name": "Litterature",

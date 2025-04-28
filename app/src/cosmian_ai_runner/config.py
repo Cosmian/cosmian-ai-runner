@@ -79,15 +79,3 @@ class AppConfig:
         if config is not None and "use_amx" in config:
             return config["use_amx"]
         return False
-
-    @classmethod
-    def get_hf_token(cls) -> Optional[str]:
-        """
-        Get Hugging Face token to use models
-        Returns:
-            Option[String]: The token to use
-        """
-        config = cls.get()
-        if config is not None and "hf_token" in config:
-            return config["hf_token"]
-        return None

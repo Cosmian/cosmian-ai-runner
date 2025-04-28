@@ -11,7 +11,6 @@ from haystack.dataclasses import ByteStream
 from haystack.components.generators import HuggingFaceLocalGenerator
 from haystack.components.preprocessors import DocumentCleaner, DocumentSplitter
 from haystack.components.builders import PromptBuilder
-from haystack.utils import Secret
 from haystack.components.embedders import (
     SentenceTransformersDocumentEmbedder,
     SentenceTransformersTextEmbedder,
@@ -125,21 +124,20 @@ def build_summarize_pipeline(model_name):
     return pipeline
 
 
-def build_translate_pipeline(model_name, hf_token):
+def build_translate_pipeline(model_name):
     """
     Build translation pipeline
     """
     generator = HuggingFaceLocalGenerator(
         model_name,
         task="text2text-generation",
-        token=Secret.from_token(hf_token),
         generation_kwargs={
             "max_new_tokens": 500,
         },
     )
     generator.warm_up()
     pipeline = Pipeline()
-    pipeline.add_component("translater", generator)
+    pipeline.add_component("translator", generator)
 
     return pipeline
 
@@ -166,3 +164,46 @@ def build_context_predict_pipeline(model_name):
     pipeline.connect("prompt_builder", "llm")
 
     return pipeline
+
+
+LANGUAGE_CODE = {
+    "ar": "Arabic",
+    "bg": "Bulgarian",
+    "ca": "Catalan",
+    "zh": "Chinese",
+    "hr": "Croatian",
+    "cs": "Czech",
+    "da": "Danish",
+    "nl": "Dutch",
+    "en": "English",
+    "et": "Estonian",
+    "fi": "Finnish",
+    "fr": "French",
+    "de": "German",
+    "el": "Greek",
+    "he": "Hebrew",
+    "hi": "Hindi",
+    "hu": "Hungarian",
+    "id": "Indonesian",
+    "it": "Italian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "lv": "Latvian",
+    "lt": "Lithuanian",
+    "nb": "Norwegian",
+    "nn": "Norwegian",
+    "fa": "Persian",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "ro": "Romanian",
+    "ru": "Russian",
+    "sk": "Slovak",
+    "sl": "Slovenian",
+    "sr": "Serbian",
+    "es": "Spanish",
+    "sv": "Swedish",
+    "th": "Thai",
+    "tr": "Turkish",
+    "uk": "Ukrainian",
+    "vi": "Vietnamese",
+}

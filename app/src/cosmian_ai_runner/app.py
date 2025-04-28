@@ -13,7 +13,6 @@ import torch
 from flask import Flask, Response, jsonify, request, current_app
 from flask_cors import CORS
 
-from haystack.utils import Secret
 from haystack.components.generators import HuggingFaceLocalGenerator
 from haystack.components.converters import (
     HTMLToDocument,
@@ -32,6 +31,7 @@ from .utils import (
     build_summarize_pipeline,
     build_context_predict_pipeline,
     build_translate_pipeline,
+    LANGUAGE_CODE,
 )
 
 torch.set_num_threads(os.cpu_count() or 1)
@@ -46,9 +46,6 @@ with open(config_path, encoding="utf-8") as f:
     AppConfig.load(f)
 app.config["AUTOMATIC_CAST_CONTEXT"] = nullcontext()
 rag_config = AppConfig.get_documentary_bases_config()
-hf_token = AppConfig.get_hf_token()
-if hf_token is None:
-    raise Exception("Error: Missing Hugging face token from configuration")
 
 
 def create_app():
@@ -88,19 +85,18 @@ def create_app():
 
 # Build documentary databases
 documentary_bases = []
-tmp_dir = os.path.join(tempfile.gettempdir(), "document_store")
-if not os.path.exists(tmp_dir):
-    os.makedirs(tmp_dir)
+tmp_dir_doc_store = os.path.join(tempfile.gettempdir(), "document_store")
+if not os.path.exists(tmp_dir_doc_store):
+    os.makedirs(tmp_dir_doc_store)
 
 if rag_config:
     for base in rag_config:
-        tmp_file_path = os.path.join(tmp_dir, base["persist_path"])
+        tmp_file_path = os.path.join(tmp_dir_doc_store, base["persist_path"])
         document_store = ChromaDocumentStore(persist_path=tmp_file_path)
         retriever = ChromaEmbeddingRetriever(document_store)
         generator = HuggingFaceLocalGenerator(
             model=base["model"],
             task=base["task"],
-            token=Secret.from_token(hf_token),
             generation_kwargs=base["kwargs"],
         )
         pipeline = build_rag_pipeline(
@@ -115,6 +111,11 @@ if rag_config:
                 "references": [],
             },
         )
+
+# Build other pipelines
+summarize_pipeline = build_summarize_pipeline("facebook/bart-large-cnn")
+pipeline_context_predict = build_context_predict_pipeline("google/flan-t5-large")
+translate_pipeline = build_translate_pipeline("google/flan-t5-large")
 
 
 @app.get("/health")
@@ -135,13 +136,11 @@ async def post_summarize():
         return ("Error: Missing file content", 400)
 
     text = request.form["doc"]
-    model_name = "facebook/bart-large-cnn"
     autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
         with autocast_context:
-            summarize_pipeline = build_summarize_pipeline(model_name)
-            chunks = chunk_text(text, model_name, 800)
+            chunks = chunk_text(text, "google/flan-t5-large", 800)
             all_replies = []
             for chunk in chunks:
                 data = {"summarizer": {"prompt": f"Summarize this text: {chunk}"}}
@@ -179,17 +178,20 @@ async def post_translate():
     src_lang = request.form["src_lang"]
     tgt_lang = request.form["tgt_lang"]
 
-    model_name = f"Helsinki-NLP/opus-mt-{src_lang}-{tgt_lang}"
     autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
         with autocast_context:
-            translate_pipeline = build_translate_pipeline(model_name, hf_token)
             all_replies = []
-            chunks = chunk_text(text, model_name, 200)
+            chunks = chunk_text(text, "google/flan-t5-large", 200)
+            print("OUT CHUNK")
             for chunk in chunks:
-                data = {"translater": {"prompt": f"{chunk}"}}
-                result = translate_pipeline.run(data=data)["translater"]["replies"][0]
+                data = {
+                    "prompt": f"Translate this text from {LANGUAGE_CODE[src_lang]} to \
+                    {LANGUAGE_CODE[tgt_lang]}: {chunk}"
+                }
+                result = translate_pipeline.run(data=data)["translator"]["replies"][0]
+                print(result)
                 all_replies.append(result)
             combined_result = " ".join(all_replies)
     except OSError as e:
@@ -219,8 +221,6 @@ async def context_predict():
 
     query = request.form["query"]
     context = request.form["context"]
-    model_name = "google/flan-t5-large"
-    pipeline_context_predict = build_context_predict_pipeline(model_name)
     autocast_context = current_app.config["AUTOMATIC_CAST_CONTEXT"]
 
     try:
@@ -311,10 +311,10 @@ async def add_ref():
     if "reference" not in request.form:
         return ("Error: Missing reference", 400)
 
-    tmp_dir = os.path.join(tempfile.gettempdir(), "app_data")
+    tmp_dir_app_data = os.path.join(tempfile.gettempdir(), "app_data")
 
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
+    if not os.path.exists(tmp_dir_app_data):
+        os.makedirs(tmp_dir_app_data)
     if "file" not in request.files:
         return jsonify({"Error": "No file part"}), 400
 
@@ -332,11 +332,13 @@ async def add_ref():
         return jsonify({"Error": "No selected file"}), 400
 
     if file and (
-        file.filename.endswith(".epub") or file.filename.endswith(".docx") or file.filename.endswith(".pdf")
+        file.filename.endswith(".epub")
+        or file.filename.endswith(".docx")
+        or file.filename.endswith(".pdf")
     ):
         file_ext = os.path.splitext(file.filename)[1]
         with tempfile.NamedTemporaryFile(
-            dir=tmp_dir, suffix=file_ext, delete=False
+            dir=tmp_dir_app_data, suffix=file_ext, delete=False
         ) as temp_file:
             temp_file_name = temp_file.name
             file.save(temp_file_name)
@@ -393,13 +395,12 @@ async def delete_ref():
         return ("Error database not found", 404)
 
     try:
-        document_store = database["document_store"]
-        documents = document_store.filter_documents(
+        documents = database["document_store"].filter_documents(
             filters={"field": "reference", "operator": "==", "value": reference}
         )
         doc_ids = [doc.id for doc in documents]
         database["references"].remove(reference)
-        document_store.delete_documents(doc_ids)
+        database["document_store"].delete_documents(doc_ids)
         return ("Reference successfully removed", 200)
     except Exception as e:
         return (f"Error removing reference: {e}", 400)
