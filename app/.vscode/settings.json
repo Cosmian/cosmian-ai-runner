@@ -1,0 +1,19 @@
+{
+  "workbench.colorCustomizations": {
+    "editor.findMatchBackground": "#07cc009d",
+    "editor.findMatchHighlightBackground": "#ff7b00a1",
+    "editor.selectionBackground": "#e788ff7c",
+    "editor.selectionHighlightBackground": "#ff00005b",
+    "editorLineNumber.activeForeground": "#00ff00",
+    "list.activeSelectionBackground": "#4a4865",
+    "list.focusBackground": "#3b3956",
+    "minimap.errorHighlight": "#FA0404",
+    "numberedBookmarks.lineBackground": "#007700",
+    "rust_analyzer.inlayHint": "#5C5959",
+    "tab.activeBackground": "#343454",
+    "activityBar.background": "#59131E",
+    "titleBar.activeBackground": "#7D1B2A",
+    "titleBar.activeForeground": "#FEFBFB"
+  },
+  "git.ignoreLimitWarning": true
+}

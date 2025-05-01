@@ -1,0 +1,15 @@
+[Unit]
+Description=Cosmian AI Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=cosmian
+ExecStart=/usr/bin/bash -c "cosmian-ai-runner -p 5001"
+Restart=always
+RestartSec=3
+Environment="CONFIG_PATH=/home/cosmian/cosmian_ai_backend/run/config.json"
+Environment="PATH=/usr/local/bin:$PATH"
+
+[Install]
+WantedBy=multi-user.target
