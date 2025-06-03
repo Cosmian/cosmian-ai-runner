@@ -213,7 +213,7 @@ Translation is made using one of the "Helsinki-NLP/opus-mt" models.
   ```
 
 You can list available documentary basis and their uploaded references from current configuration using:
-- Endpoint: `/documentary_basis`
+- Endpoint: `/documentary_bases`
 - Method: **GET**
 - Example:
   ```
