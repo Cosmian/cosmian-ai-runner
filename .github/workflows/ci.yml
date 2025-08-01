@@ -7,8 +7,8 @@
     build:
       runs-on: ubuntu-latest
       steps:
-          - uses: actions/checkout@v3
-          - uses: actions/setup-python@v3
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
             with:
               python-version: 3.8
           - name: Install dependencies
@@ -23,7 +23,7 @@
             run: |
                 cd app/
                 python -m build
-          - uses: actions/upload-artifact@v3
+          - uses: actions/upload-artifact@v4
             with:
               name: cosmian_ai_backend_dist
               path: ./app/dist
@@ -33,12 +33,12 @@
       runs-on: ubuntu-latest
       needs: build
       steps:
-        - uses: actions/checkout@v3
-        - uses: actions/setup-python@v3
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
           with:
             python-version: 3.8
         - name: Download artifact
-          uses: actions/download-artifact@v3
+          uses: actions/download-artifact@v4
           with:
             name: cosmian_ai_backend_dist
             path: ./dist
@@ -54,14 +54,32 @@
       needs: build
       runs-on: ubuntu-latest
       steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
         - name: Download artifact
-          uses: actions/download-artifact@v3
+          uses: actions/download-artifact@v4
           with:
             name: cosmian_ai_backend_dist
             path: ./dist
         - name: Release on tags, attach asset on release
           if: startsWith(github.ref, 'refs/tags/')
-          uses: softprops/action-gh-release@v1
+          uses: softprops/action-gh-release@v2
           with:
             files: dist/*
+
+    push:
+        needs: build
+        name: package.cosmian.com
+        runs-on: [self-hosted, no-tee]
+        steps:
+          - name: Download binaries
+            uses: actions/download-artifact@v4
+            with:
+              name: cosmian_ai_backend
+
+          - name: Push latest build to package.cosmian.com
+            run: |
+              set -x
+              export BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+              DESTINATION_DIR=/mnt/package/cosmian_ai_backend/last_build/${BRANCH}
+              ssh cosmian@package.cosmian.com mkdir -p $DESTINATION_DIR
+              scp app/dist/cosmian_ai_backend cosmian_ai_runner-0.3.0-py3-none-any.whl cosmian@package.cosmian.com:$DESTINATION_DIR/
