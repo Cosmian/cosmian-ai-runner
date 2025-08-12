@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2025-08-12
+
+### 🐛 Bug Fixes
+
+- Detect CVE in deps
+
+### ⚙️ Miscellaneous Tasks
+
+- Bump python dependencies (#21)
+
 ## [1.0.0] - 2025-04-15
 
 ### 🚀 Features
