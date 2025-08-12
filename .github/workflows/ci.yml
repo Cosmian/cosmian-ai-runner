@@ -4,6 +4,20 @@ name: Build, test and release
 on: [push]
 
 jobs:
+  audit:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12.5
+    steps:
+      - uses: actions/checkout@v4
+      - name: install
+        run: |
+          cd app/
+          python -m venv env/
+          . env/bin/activate
+          python -m pip install pip-audit
+          pip-audit -r requirements.txt
+
   build:
     runs-on: ubuntu-latest
     container:
@@ -44,7 +58,9 @@ jobs:
           pip install dist/*.whl
 
   release:
-    needs: build
+    needs:
+      - audit
+      - build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
